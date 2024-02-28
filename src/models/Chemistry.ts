@@ -1,11 +1,10 @@
 import { ChemicalSymbol, Coefficient } from './common'
 
-export type Error = 'error';
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
 export type State = ''|'(s)'|'(l)'|'(g)'|'(m)'|'(aq)';
 export type Arrow = 'SArr'|'DArr';
 export type Molecule = Element | Compound;
-export type Result = Statement | Expression | Term;
+export type Result = Statement | Expression | Term | ParseError;
 
 interface ASTNode {
     type: Type;
@@ -14,6 +13,7 @@ interface ASTNode {
 export interface ParseError extends ASTNode {
     type: 'error';
     value: string;
+    expected: string[];
     loc: [number, number];
 }
 
@@ -39,7 +39,7 @@ export interface Ion extends ASTNode {
     type: 'ion';
     molecule: Molecule;
     charge: number;
-    chain: Ion | undefined;
+    chain?: Ion;
 }
 
 // Internal interface to make typing easier

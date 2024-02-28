@@ -2,7 +2,7 @@ import { ChemicalSymbol, Coefficient } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
-export type Result = Statement | Expression | Term;
+export type Result = Statement | Expression | Term | ParseError;
 
 interface ASTNode {
     type: Type;
@@ -11,6 +11,7 @@ interface ASTNode {
 export interface ParseError extends ASTNode {
     type: 'error';
     value: string;
+    expected: string[];
     loc: [number, number];
 }
 
@@ -48,6 +49,6 @@ export interface Statement extends ASTNode {
     right: Expression | Term;
 }
 
-export interface ChemAST {
+export interface NuclearAST {
     result: Result;
 }
