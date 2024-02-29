@@ -19,7 +19,7 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const str: string = JSON.stringify(req.body, null, 4);
     console.log(`[server]: /nuclear recieved ${str}`);
-    res.status(501).send("Not Implemented\n");
+    res.status(501).send("Not Implemented");
 });
 
 router.post('/parse', parseValidationRules, (req: Request, res: Response) => {
