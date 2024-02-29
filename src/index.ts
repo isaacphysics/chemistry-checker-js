@@ -1,21 +1,17 @@
-import express, { NextFunction, Request, Response } from 'express';
+import express, { NextFunction, Request, Response, Express } from 'express';
 import dotenv from 'dotenv';
-import ChemRoute from './routes/ChemistryChecker';
-import NuclearRoute from './routes/NuclearChecker';
-import ChemParserRoute from './routes/ChemistryParser';
-import NuclearParserRoute from './routes/NuclearParser';
+import ChemRoute from './routes/Chemistry';
+import NuclearRoute from './routes/Nuclear';
 
 dotenv.config();
 
-const app = express();
+const app: Express = express();
 // Loaded from `.env` file
 const port = process.env.PORT;
 
 app.use(express.json());
-app.use('/chem', ChemRoute);
+app.use('/chemistry', ChemRoute);
 app.use('/nuclear', NuclearRoute);
-app.use('/chem-parser', ChemParserRoute);
-app.use('/nuclear-parser', NuclearParserRoute);
 
 app.get('/', (_req: Request, res: Response) => {
       res.send('The Nu-Chem Checker');

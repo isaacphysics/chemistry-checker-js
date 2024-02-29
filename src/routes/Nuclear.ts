@@ -4,12 +4,25 @@ import { parseNuclearExpression } from "inequality-grammar";
 
 const router = Router();
 
-const nuclearValidationRules: ValidationChain[] = [
+const checkValidationRules: ValidationChain[] = [];
+const parseValidationRules: ValidationChain[] = [
     body('test').notEmpty().withMessage("mhChem expression is required."),
     body('description').optional().isString().withMessage("When provided the descrition must be a string.")
 ];
 
-router.post('/', nuclearValidationRules, (req: Request, res: Response) => {
+router.post('/check', checkValidationRules, (req: Request, res: Response) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const str: string = JSON.stringify(req.body, null, 4);
+    console.log(`[server]: /nuclear recieved ${str}`);
+    res.status(501).send("Not Implemented\n");
+});
+
+router.post('/parse', parseValidationRules, (req: Request, res: Response) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
