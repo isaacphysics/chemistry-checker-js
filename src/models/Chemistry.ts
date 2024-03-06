@@ -104,3 +104,108 @@ export function isStatement(node: ASTNode): node is Statement {
 export interface ChemAST {
     result: Result;
 }
+
+function flattenNode<T extends ASTNode>(node: T): T {
+    // The if statements are for safe type coersion
+    switch (node.type) {
+        case "compound": {
+            if (isCompound(node)) {
+                // Recursively flatten
+                let elements: (Element | Bracket)[] = [];
+                if (node.tail) {
+                    const flatTail: Element | Bracket | Compound = flattenNode(node.tail);
+
+                    if (isCompound(flatTail)) {
+                        elements = flatTail.elements ?? [];
+                    } else {
+                        elements = [flatTail]
+                    }
+                }
+
+                // Append the current element
+                elements.push(node.head)
+
+                // Update and return the node
+                node.elements = elements;
+                delete node.tail;
+                return node;
+            }
+        }
+        case "ion": {
+            if (isIon(node)) {
+                let molecules: Molecule[] = [];
+                let charges: number[] = [];
+
+                // Recursively flatten
+                if (node.chain) {
+                    const flatChain: Ion = flattenNode(node.chain);
+                    molecules = flatChain.molecules ?? [];
+                    charges = flatChain.charges ?? [];
+                }
+
+                // Append the current values
+                molecules.push(node.molecule);
+                charges.push(node.charge);
+
+                // Update and return the node
+                node.molecules = molecules;
+                node.charges = charges;
+                delete node.chain;
+                return node;
+            }
+        }
+        case "expr": {
+            if (isExpression(node)) {
+                let terms: Term[] = [];
+
+                // Recursively flatten
+                if (node.rest) {
+                    const flatTerms: Expression | Term = flattenNode(node.rest);
+
+                    if (isExpression(flatTerms)) {
+                        terms = flatTerms.terms ?? [];
+                    }
+                }
+
+                // Append the current term
+                terms.push(node.term);
+
+                // Update and return the node
+                node.terms = terms;
+                delete node.rest;
+                return node;
+            }
+        }
+
+        // Nodes that do not need flattening but have subtrees
+        case "bracket": {
+            if (isBracket(node)) {
+                node.compound = flattenNode(node.compound);
+                return node;
+            }
+        }
+        case "term": {
+            if (isTerm(node)) {
+                node.value = flattenNode(node.value);
+                return node;
+            }
+        }
+        case "statement": {
+            if (isStatement(node)) {
+                node.left = flattenNode(node.left);
+                node.right = flattenNode(node.right);
+                return node;
+            }
+        }
+
+        // Leaves of the AST
+        case "error":
+        case "element":
+        case "electron": return node;
+    }
+}
+
+export function flatten(ast: ChemAST): ChemAST {
+    const flatResult: Result = flattenNode(ast.result);
+    return { result: flatResult };
+}
