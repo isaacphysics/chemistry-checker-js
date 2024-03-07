@@ -52,7 +52,8 @@ export function isTerm(node: ASTNode): node is Term {
 export interface Expression extends ASTNode {
     type: 'expr';
     term: Term;
-    rest: Expression | Term;
+    rest?: Expression | Term;
+    terms?: Term[];
 }
 export function isExpression(node: ASTNode): node is Expression {
     return node.type === 'expr';
@@ -69,4 +70,54 @@ export function isStatement(node: ASTNode): node is Statement {
 
 export interface NuclearAST {
     result: Result;
+}
+
+function flattenNode<T extends ASTNode>(node: T): T {
+    // The if statements signal to the type checker what we already know
+    switch (node.type) {
+        case "expr": {
+            if(isExpression(node)) {
+                let terms: Term[] = [];
+
+                // Recursively flatten
+                if (node.rest) {
+                    const flatTerms: Expression | Term = flattenNode(node.rest);
+
+                    if (isExpression(flatTerms)) {
+                        terms = flatTerms.terms ?? [];
+                    } else {
+                        terms = [flatTerms];
+                    }
+
+                    // Append the current term
+                    terms.push(node.term);
+
+                    // Update and return the node
+                    node.terms = terms;
+                    delete node.rest;
+                    return node;
+                }
+            }
+        }
+
+        // Nodes with subtrees but no lists
+        case "statement": {
+            if (isStatement(node)) {
+                node.left = flattenNode(node.left);
+                node.right = flattenNode(node.right);
+                return node;
+            }
+        }
+
+        // Leaves of the AST
+        case "term": // Term doesn't have subtrees that could be flattened
+        case "error":
+        case "particle":
+        case "isotope": return node;
+    }
+}
+
+export function flatten(ast: NuclearAST): NuclearAST {
+    const flatResult: Result = flattenNode(ast.result);
+    return { result: flatResult };
 }
