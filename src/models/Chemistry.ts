@@ -106,7 +106,7 @@ export interface ChemAST {
 }
 
 function flattenNode<T extends ASTNode>(node: T): T {
-    // The if statements are for safe type coersion
+    // The if statements signal to the type checker what we already know
     switch (node.type) {
         case "compound": {
             if (isCompound(node)) {
