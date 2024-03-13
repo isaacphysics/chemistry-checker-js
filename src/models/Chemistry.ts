@@ -53,8 +53,7 @@ export interface Ion extends ASTNode {
     molecule: Molecule;
     charge: number;
     chain?: Ion;
-    molecules?: Molecule[];
-    charges?: number[];
+    molecules?: [Molecule, number][];
 }
 export function isIon(node: ASTNode): node is Ion {
     return node.type === 'ion';
@@ -133,23 +132,19 @@ function flattenNode<T extends ASTNode>(node: T): T {
         }
         case "ion": {
             if (isIon(node)) {
-                let molecules: Molecule[] = [];
-                let charges: number[] = [];
+                let molecules: [Molecule, number][] = [];
 
                 // Recursively flatten
                 if (node.chain) {
                     const flatChain: Ion = flattenNode(node.chain);
                     molecules = flatChain.molecules ?? [];
-                    charges = flatChain.charges ?? [];
                 }
 
                 // Append the current values
-                molecules.push(node.molecule);
-                charges.push(node.charge);
+                molecules.push([node.molecule, node.charge]);
 
                 // Update and return the node
                 node.molecules = molecules;
-                node.charges = charges;
                 delete node.chain;
                 return node;
             }
