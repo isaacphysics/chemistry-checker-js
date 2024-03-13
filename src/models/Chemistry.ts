@@ -175,6 +175,12 @@ function flattenNode<T extends ASTNode>(node: T): T {
         }
 
         // Nodes that do not need flattening but have subtrees
+        case "bracket": {
+            if(isBracket(node)) {
+                node.compound = flattenNode(node.compound);
+                return node;
+            }
+        }
         case "term": {
             if (isTerm(node)) {
                 node.value = flattenNode(node.value);
@@ -190,7 +196,6 @@ function flattenNode<T extends ASTNode>(node: T): T {
         }
 
         // Leaves of the AST
-        case "bracket": // Bracket doesn't have subtress that could be flattened
         case "error":
         case "element":
         case "electron": return node;
