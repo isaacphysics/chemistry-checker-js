@@ -47,8 +47,8 @@ falseResponse.isEqual = false;
 const element: Element = { type: "element", value: "C", coeff: 1 };
 const minimalCompound: Compound = {
     type: "compound",
-    head: { type: "element", value: "C", coeff: 1 },
-    elements: [{ type: "element", value: "C", coeff: 1 }]
+    head: { type: "element", value: "O", coeff: 1 },
+    elements: [{ type: "element", value: "O", coeff: 1 }]
 };
 const bracket: Bracket = {
     type: "bracket",
@@ -178,11 +178,12 @@ describe("checkNodesEqual Elements", () => {
             // Act
             const elementCopy: Element = structuredClone(element)
 
-            const testResponse = checkNodesEqual(element, elementCopy, structuredClone(response));
+            const testResponse = checkNodesEqual(elementCopy, element, structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
+            expect(testResponse.balanceCount?.get("C")).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when elements don't match",
@@ -193,14 +194,17 @@ describe("checkNodesEqual Elements", () => {
             const coefficientMismatch: Element = structuredClone(element);
             coefficientMismatch.coeff = 2;
 
-            const elementIncorrect = checkNodesEqual(element, valueMismatch, structuredClone(response));
-            const coeffIncorrect = checkNodesEqual(element, coefficientMismatch, structuredClone(response));
+            const elementIncorrect = checkNodesEqual(valueMismatch, element, structuredClone(response));
+            const coeffIncorrect = checkNodesEqual(coefficientMismatch, element, structuredClone(response));
 
             // Assert
             expect(elementIncorrect.isEqual).toBeFalsy();
             expect(elementIncorrect.sameCoefficient).toBeTruthy();
+            expect(elementIncorrect.balanceCount?.get("O")).toBe(1);
+
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
+            expect(coeffIncorrect.balanceCount?.get("C")).toBe(2);
         }
     );
 });
@@ -211,11 +215,12 @@ describe("checkNodesEqual Brackets", () => {
             // Act
             const bracketCopy: Bracket = structuredClone(bracket);
 
-            const testResponse = checkNodesEqual(bracket, bracketCopy, structuredClone(response));
+            const testResponse = checkNodesEqual(bracketCopy, bracket, structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
+            expect(testResponse.balanceCount?.get("C")).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when brackets don't match",
@@ -224,11 +229,12 @@ describe("checkNodesEqual Brackets", () => {
             const coefficientMismatch: Bracket = structuredClone(bracket);
             coefficientMismatch.coeff = 2;
 
-            const coeffIncorrect = checkNodesEqual(bracket, coefficientMismatch, structuredClone(response));
+            const coeffIncorrect = checkNodesEqual(coefficientMismatch, bracket, structuredClone(response));
 
             // Assert
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
+            expect(coeffIncorrect.balanceCount?.get("O")).toBe(2);
         }
     );
 });
@@ -240,26 +246,28 @@ describe("checkNodesEqual Compounds", () => {
             const permutedCompound: Compound = structuredClone(compound);
             permutedCompound.elements?.reverse;
 
-            const testResponse = checkNodesEqual(compound, permutedCompound, structuredClone(response));
+            const testResponse = checkNodesEqual(permutedCompound, compound, structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.balanceCount?.get("C")).toBe(1)
+            expect(testResponse.balanceCount?.get("O")).toBe(1)
         }
     );
     it("Returns falsy CheckerResponse when compounds don't match",
         () => {
             // Act
-            const c2: Compound = structuredClone(compound);
-            c2.elements = [structuredClone(element), structuredClone(element)]
-            const c3: Compound = structuredClone(compound);
-            c3.elements?.push(structuredClone(element));
+            const typeMismatch: Compound = structuredClone(compound);
+            typeMismatch.elements = [structuredClone(element), structuredClone(element)]
+            const lengthMismatch: Compound = structuredClone(compound);
+            lengthMismatch.elements?.push(structuredClone(element));
 
-            const lengthIncorrect = checkNodesEqual(compound, c2, structuredClone(response));
-            const typesIncorrect = checkNodesEqual(compound, c3, structuredClone(response));
+            const typesIncorrect = checkNodesEqual(typeMismatch, compound, structuredClone(response));
+            const lengthIncorrect = checkNodesEqual(lengthMismatch, compound, structuredClone(response));
 
             // Assert
-            expect(lengthIncorrect.isEqual).toBeFalsy();
             expect(typesIncorrect.isEqual).toBeFalsy();
+            expect(lengthIncorrect.isEqual).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
@@ -275,12 +283,12 @@ describe("checkNodesEqual Compounds", () => {
             const elementMismatch: Compound = structuredClone(compound);
             if (elementMismatch.elements) elementMismatch.elements[0] = elementCoeffMismatch;
 
-            const bracketResponse: CheckerResponse = checkNodesEqual(bracket, bracketCoeffMismatch, structuredClone(response));
-            const elementResponse: CheckerResponse = checkNodesEqual(element, elementCoeffMismatch, structuredClone(response));
+            const bracketResponse: CheckerResponse = checkNodesEqual(bracketCoeffMismatch, bracket, structuredClone(response));
+            const elementResponse: CheckerResponse = checkNodesEqual(elementCoeffMismatch, element, structuredClone(response));
 
             // Assert
-            expect(checkNodesEqual(compound, bracketMismatch, structuredClone(response))).toEqual(bracketResponse);
-            expect(checkNodesEqual(compound, elementMismatch, structuredClone(response))).toEqual(elementResponse);
+            expect(checkNodesEqual(bracketMismatch, compound, structuredClone(response))).toEqual(bracketResponse);
+            expect(checkNodesEqual(elementMismatch, compound, structuredClone(response))).toEqual(elementResponse);
         }
     );
     it("Returns an error if the AST is not flattened",
@@ -311,10 +319,13 @@ describe("CheckNodesEqual Ions", () => {
             const permutedIon: Ion = structuredClone(ion);
             permutedIon.molecules?.reverse;
 
-            const testResponse = checkNodesEqual(ion, permutedIon, structuredClone(response));
+            const testResponse = checkNodesEqual(permutedIon, ion, structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.balanceCount?.get("O")).toBe(1);
+            expect(testResponse.balanceCount?.get("Na")).toBe(1);
+            expect(testResponse.chargeCount).toBe(0);
         }
     );
     it("Returns falsy CheckerResponse when ions do not match",
@@ -332,9 +343,9 @@ describe("CheckNodesEqual Ions", () => {
             const lengthMismatch: Ion = structuredClone(ion);
             lengthMismatch.molecules?.push([structuredClone(element), 1]);
 
-            const moleculeIncorrect = checkNodesEqual(ion, moleculeMismatch, structuredClone(response));
-            const chargeIncorrect = checkNodesEqual(ion, chargeMismatch, structuredClone(response));
-            const lengthIncorrect = checkNodesEqual(ion, lengthMismatch, structuredClone(response));
+            const moleculeIncorrect = checkNodesEqual(moleculeMismatch, ion, structuredClone(response));
+            const chargeIncorrect = checkNodesEqual(chargeMismatch, ion, structuredClone(response));
+            const lengthIncorrect = checkNodesEqual(lengthMismatch, ion, structuredClone(response));
 
             // Assert
             expect(moleculeIncorrect.isEqual).toBeFalsy();
@@ -352,7 +363,7 @@ describe("CheckNodesEqual Ions", () => {
             trueResponse.isEqual = true;
 
             // Assert
-            expect(checkNodesEqual(ion, ionCopy, structuredClone(newResponse))).toEqual(trueResponse);
+            expect(checkNodesEqual(ionCopy, ion, structuredClone(newResponse))).toEqual(trueResponse);
         }
     );
     it("Returns an error if the AST is not flattened",
@@ -382,26 +393,36 @@ describe("CheckNodesEqual Ions", () => {
 });
 
 describe("CheckNodesEqual Term", () => {
+    // TODO: Separate into different tests
     it("Returns truthy CheckerResponse when terms match",
         () => {
+            // Scalar multiple coefficient
             let perturbedTerm: Term = structuredClone(term);
             perturbedTerm.coeff = { numerator: 6, denominator: 4 };
 
-            expect(checkNodesEqual(term, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
-            expect(checkNodesEqual(term, perturbedTerm, structuredClone(response)).sameState).toBeTruthy();
+            let testResponse = checkNodesEqual(perturbedTerm, term, structuredClone(response))
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.sameState).toBeTruthy();
+            expect(testResponse.balanceCount?.get("C")).toBe(1);
 
+            // Term with a state
             perturbedTerm = structuredClone(term);
             perturbedTerm.state = "(aq)";
             let termCopy: Term = structuredClone(perturbedTerm);
-            expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
-            expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).sameState).toBeTruthy();
 
+            testResponse = checkNodesEqual(perturbedTerm, termCopy, structuredClone(response))
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.sameState).toBeTruthy();
+
+            // Hydrate term
             perturbedTerm = structuredClone(term);
             termCopy.isHydrate = true;
             termCopy.hydrate = 7;
             termCopy = structuredClone(perturbedTerm);
+
             expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
 
+            // Electron
             perturbedTerm = structuredClone(term);
             perturbedTerm.isElectron = true
             perturbedTerm.value = { type: "electron" }
@@ -411,12 +432,14 @@ describe("CheckNodesEqual Term", () => {
     );
     it("Returns falsy CheckerResponse when terms don't match",
         () => {
+            // Mismatched coefficients
             let mismatchTerm: Term = structuredClone(term);
             mismatchTerm.coeff = { numerator: 1, denominator: 5 };
 
-            expect(checkNodesEqual(term, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(term, mismatchTerm, structuredClone(response)).sameCoefficient).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).sameCoefficient).toBeFalsy();
 
+            // Mismatched state
             let perturbedTerm: Term = structuredClone(term);
             mismatchTerm = structuredClone(term)
             perturbedTerm.state = "(aq)";
@@ -424,6 +447,7 @@ describe("CheckNodesEqual Term", () => {
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).sameState).toBeFalsy();
 
+            // Mismatched hydrate
             perturbedTerm = structuredClone(term);
             mismatchTerm = structuredClone(term);
             perturbedTerm.isHydrate = true;
@@ -432,11 +456,25 @@ describe("CheckNodesEqual Term", () => {
             mismatchTerm.hydrate = 1;
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
 
+            // Mismatched type
             mismatchTerm = structuredClone(term);
             mismatchTerm.isElectron = true
             mismatchTerm.value = { type: "electron" }
-            expect(checkNodesEqual(term, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(term, mismatchTerm, structuredClone(response)).typeMismatch).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).typeMismatch).toBeFalsy();
+        }
+    );
+    it("Retains CheckerResponse properties",
+        () => {
+            // Act
+            const complexTerm: Term = structuredClone(term);
+            complexTerm.value = structuredClone(ion);
+
+            const compoundResponse = checkNodesEqual(ion, ion, structuredClone(response));
+            const testResponse = checkNodesEqual(complexTerm, term, structuredClone(response));
+            // Assert
+            expect(testResponse.balanceCount).toBe(compoundResponse.balanceCount);
+            expect(testResponse.chargeCount).toBe(compoundResponse.chargeCount);
         }
     );
 });
@@ -448,8 +486,10 @@ describe("CheckNodesEqual Expression", () => {
             const permutedExpression: Expression = structuredClone(expression);
             permutedExpression.terms?.reverse;
 
+            const testResponse: CheckerResponse = checkNodesEqual(permutedExpression, expression, structuredClone(response));
             // Assert
-            expect(checkNodesEqual(expression, permutedExpression, structuredClone(response)).isEqual).toBeTruthy();
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.balanceCount?.get("C")).toBe(2);
         }
     );
     it("Returns falsy CheckerResponse when expressions do not match",
@@ -462,8 +502,8 @@ describe("CheckNodesEqual Expression", () => {
             if (termMismatch.terms) termMismatch.terms[1] = structuredClone(hydrate);
 
             // Assert
-            expect(checkNodesEqual(expression, lengthMismatch, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(expression, termMismatch, structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(lengthMismatch, expression, structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(termMismatch, expression, structuredClone(response)).isEqual).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
@@ -476,7 +516,7 @@ describe("CheckNodesEqual Expression", () => {
 
             // Assert
             expect(
-                checkNodesEqual(expression, mismatchedHydrate, structuredClone(response))
+                checkNodesEqual(mismatchedHydrate, expression, structuredClone(response))
             ).toEqual(hydrateResponse);
         }
     );
@@ -491,8 +531,8 @@ describe("CheckNodesEqual Expression", () => {
             }
 
             // Assert
-            expect(checkNodesEqual(expression, unflattenedExpression, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(expression, unflattenedExpression, structuredClone(response)).error).toEqual(
+            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
+            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).error).toEqual(
                 { message: "Received unflattened AST during checking process." }
             );
 
@@ -507,12 +547,17 @@ describe("CheckNodesEqual Statement", () => {
             // Act
             const copy: Statement = structuredClone(statement);
 
-            // Assert
-            expect(checkNodesEqual(statement, copy, structuredClone(response)).isEqual).toBeTruthy();
+            const copyResult: CheckerResponse = checkNodesEqual(copy, statement, structuredClone(response));
 
             copy.arrow = "DArr";
             const doubleArrowCopy: Statement = structuredClone(copy);
-            expect(checkNodesEqual(doubleArrowCopy, copy, structuredClone(response)).isEqual).toBeTruthy();
+            const arrowResult = checkNodesEqual(copy, doubleArrowCopy, structuredClone(response));
+            // Assert
+            expect(copyResult.isEqual).toBeTruthy();
+            expect(copyResult.sameArrow).toBeTruthy();
+
+            expect(arrowResult.isEqual).toBeTruthy();
+            expect(arrowResult.sameArrow).toBeTruthy();
         }
     );
     it("Returns falsy CheckerResponse when expressions do not match",
@@ -526,28 +571,51 @@ describe("CheckNodesEqual Statement", () => {
             const doubleArrow: Statement = structuredClone(statement);
             doubleArrow.arrow = "DArr";
 
+            const swapResult = checkNodesEqual(swappedExpressions, statement, structuredClone(response));
+            const arrowResult = checkNodesEqual(doubleArrow, statement, structuredClone(response));
+
             // Assert
-            expect(checkNodesEqual(statement, swappedExpressions, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(statement, doubleArrow, structuredClone(response)).isEqual).toBeFalsy();
+            expect(swapResult.isEqual).toBeFalsy();
+            expect(swapResult.sameArrow).toBeTruthy();
+            expect(arrowResult.isEqual).toBeFalsy();
+            expect(arrowResult.sameArrow).toBeFalsy();
         }
     );
-    it("Retains CheckerResponse properties",
+    it("Correctly checks whether statements are balanced",
         () => {
-            // Act
-            const swappedExpressions: Statement = structuredClone(statement);
-            const tempExpression = swappedExpressions.left;
-            swappedExpressions.left = swappedExpressions.right;
-            swappedExpressions.right = tempExpression;
-
-            const doubleArrow: Statement = structuredClone(statement);
-            doubleArrow.arrow = "DArr";
+            // Arrange
+            const unbalancedStatement: Statement = structuredClone(statement);
+            // expression has two atoms unlike statements single right expression
+            unbalancedStatement.right = structuredClone(expression);
 
             // Assert
-            const falseResponse: CheckerResponse = structuredClone(newResponse);
-            falseResponse.isEqual = false;
+            expect((checkNodesEqual(statement, statement, structuredClone(response))).balancedAtoms).toBeTruthy();
+            expect((checkNodesEqual(unbalancedStatement, statement, structuredClone(response))).balancedAtoms).toBeFalsy();
+        }
+    );
+    it("Correctly checks whether charges are balanced",
+        () => {
+            // Arrange
+            const chargedTerm: Term = structuredClone(term);
+            chargedTerm.value = structuredClone(ion);
 
-            expect(checkNodesEqual(statement, swappedExpressions, structuredClone(newResponse))).toEqual(falseResponse);
-            expect(checkNodesEqual(statement, doubleArrow, structuredClone(newResponse))).toEqual(falseResponse);
+            // expression is otherwise neutral
+            const chargedExpr: Expression = structuredClone(expression);
+            chargedExpr.terms?.push(chargedTerm);
+
+            const balancedCharges: Statement = structuredClone(statement);
+            balancedCharges.left = structuredClone(chargedExpr);
+            balancedCharges.right = structuredClone(chargedExpr);
+            const unbalancedCharges: Statement = structuredClone(statement);
+            unbalancedCharges.left = structuredClone(chargedExpr);
+
+            // Assert
+            expect(
+                checkNodesEqual(balancedCharges, statement, structuredClone(response)).balancedCharge
+            ).toBeTruthy();
+            expect(
+                checkNodesEqual(unbalancedCharges, statement, structuredClone(response)).balancedCharge
+            ).toBeFalsy();
         }
     );
 });
