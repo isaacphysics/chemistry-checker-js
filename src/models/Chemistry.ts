@@ -1,4 +1,4 @@
-import { ChemicalSymbol, Coefficient } from './common'
+import { CheckerResponse, ChemicalSymbol, Coefficient, ReturnType } from './common'
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
 export type State = ''|'(s)'|'(l)'|'(g)'|'(m)'|'(aq)';
@@ -205,4 +205,243 @@ function flattenNode<T extends ASTNode>(node: T): T {
 export function flatten(ast: ChemAST): ChemAST {
     const flatResult: Result = flattenNode(ast.result);
     return { result: flatResult };
+}
+
+function checkCoefficient(coeff1: Coefficient, coeff2: Coefficient): boolean {
+    if (coeff1.denominator === 0 || coeff2.denominator === 0) {
+        console.error("[server] divide by 0 encountered returning false!");
+        return false;
+    }
+    // a/b = c/d <=> ad = bc given b != 0 and d != 0
+    // Comparing integers is far better than floats
+    return coeff1.numerator * coeff2.denominator === coeff2.numerator * coeff1.denominator;
+}
+
+function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Bracket)[]): boolean {
+    let numElementsDifferent: number = 0;
+    let numMoleculesDifferent: number = 0;
+
+    for (let item of compound1) {
+        switch (item.type) {
+            case "element": {
+                numElementsDifferent += 1;
+                break;
+            }
+            case "bracket": {
+                numMoleculesDifferent += 1;
+                break;
+            }
+        }
+    }
+
+    for (let item of compound2) {
+        switch (item.type) {
+            case "element": {
+                numElementsDifferent -= 1;
+                break;
+            }
+            case "bracket": {
+                numMoleculesDifferent -= 1;
+                break;
+            }
+        }
+    }
+
+    return numElementsDifferent === 0 && numMoleculesDifferent === 0;
+}
+
+function listComparison<T>(
+    testList: T[],
+    targetList: T[],
+    response: CheckerResponse,
+    comparator: (test: T, target: T, response: CheckerResponse) => CheckerResponse
+): CheckerResponse {
+    // TODO: look at a more efficient method of comparison
+    const indices: number[] = []; // the indices on which a match was made
+    let possibleResponse = structuredClone(response);
+    for (let testItem of testList) {
+        let index = 0;
+        let failed = true;
+        let currResponse: CheckerResponse | undefined;
+
+        for (let targetItem of targetList) {
+            // If a match has already occurred on an index can't match on it again
+            if (!indices.includes(index)) {
+                // Recursively check equality (avoiding side effects on possibleResponse)
+                currResponse = comparator(testItem, targetItem, structuredClone(possibleResponse));
+
+                if (currResponse.isEqual) {
+                    // If a match was found record that and repeat for remaining items
+                    failed = false;
+                    possibleResponse = currResponse;
+                    indices.push(index);
+                    break;
+                }
+            }
+            index += 1;
+        }
+
+        if (failed) {
+            // Try to get some new information otherwise use the passed response
+            const returnResponse = currResponse ?? response;
+            returnResponse.isEqual = false;
+            return returnResponse;
+        }
+    }
+    return possibleResponse
+}
+
+function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
+    if (isElement(test) && isElement(target)) {
+        response.isEqual = response.isEqual &&
+            test.value === target.value &&
+            test.coeff === target.coeff;
+        response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+        return response;
+    }
+    else if (isBracket(test) && isBracket(target)) {
+        const newResponse = checkNodesEqual(test.compound, target.compound, response);
+
+        newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
+        newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
+
+        return newResponse;
+    }
+    else if (isCompound(test) && isCompound(target)) {
+        if (test.elements && target.elements) {
+            // TODO: allow different expansions
+
+            if (test.elements.length !== target.elements.length) {
+                // fail early if molecule lengths not the same
+                response.isEqual = false;
+                return response;
+            }
+            if (!typesMatch(test.elements, target.elements)) {
+                // fail early if the number of brackets and elements don't match
+                response.isEqual = false;
+                return response;
+            }
+
+            return listComparison(test.elements, target.elements, response, checkNodesEqual);
+        } else {
+            console.error("[server] Encountered unflattened AST. Returning error");
+            response.containsError = true;
+            response.error = { message: "Received unflattened AST during checking process." };
+            return response;
+        }
+    }
+    else if (isIon(test) && isIon(target)) {
+        if (test.molecules && target.molecules) {
+            if (test.molecules.length !== target.molecules.length) {
+                // fail early if molecule lengths not the same
+                response.isEqual = false;
+                return response;
+            }
+
+            const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
+                const newResponse = checkNodesEqual(test[0], target[0], response);
+                newResponse.isEqual = newResponse.isEqual && test[1] === target[1];
+                return newResponse;
+            }
+            return listComparison(test.molecules, target.molecules, response, comparator);
+
+        } else {
+            console.error("[server] Encountered unflattened AST. Returning error");
+            response.containsError = true;
+            response.error = { message: "Received unflattened AST during checking process." };
+            return response;
+        }
+    }
+    else if (isElectron(test) && isElectron(target)) {
+        return response;
+    }
+    else if (isTerm(test) && isTerm(target)) {
+        const newResponse = checkNodesEqual(test.value, target.value, response);
+
+        const coefficientsMatch: boolean = checkCoefficient(test.coeff, target.coeff);
+        newResponse.sameCoefficient = newResponse.sameCoefficient && coefficientsMatch;
+        newResponse.isEqual = newResponse.isEqual && coefficientsMatch;
+
+        if (!test.isElectron && !target.isElectron) {
+            newResponse.sameState = newResponse.sameState && test.state === target.state;
+            newResponse.isEqual = newResponse.isEqual && test.state === target.state;
+        } // else the 'isEqual' will already be false from the checkNodesEqual above
+
+        if (test.isHydrate && target.isHydrate) {
+            // TODO: add a new property stating the hydrate was wrong?
+            newResponse.isEqual = newResponse.isEqual && test.hydrate === target.hydrate;
+        } // else the 'isEqual' will already be false from the checkNodesEqual above
+
+        return newResponse;
+    }
+    else if (isExpression(test) && isExpression(target)) {
+        if (test.terms && target.terms) {
+            if (test.terms.length !== target.terms.length) {
+                // TODO: add a new property stating the number of terms was wrong
+                // fail early if term lengths not the same
+                response.isEqual = false;
+                return response;
+            }
+
+            return listComparison(test.terms, target.terms, response, checkNodesEqual);
+        } else {
+            console.error("[server] Encountered unflattened AST. Returning error");
+            response.containsError = true;
+            response.error = { message: "Received unflattened AST during checking process." };
+            return response;
+        }
+    }
+    else if (isStatement(test) && isStatement(target)) {
+        const leftResponse = checkNodesEqual(test.left, target.left, response);
+        const rightResponse = checkNodesEqual(test.right, target.right, leftResponse);
+
+        rightResponse.isEqual = rightResponse.isEqual && test.arrow === target.arrow;
+        return rightResponse;
+    } else {
+        // There was a type mismatch
+        response.isEqual = false;
+        return response;
+    }
+}
+
+export function check(test: ChemAST, target: ChemAST): CheckerResponse {
+    const response = {
+        containsError: false,
+        error: { message: "" },
+        expectedType: "unknown" as ReturnType,
+        typeMismatch: false,
+        sameState: true,
+        sameCoefficient: true,
+        isBalanced: true,
+        isEqual: true,
+        isNuclear: false
+    }
+    // Return shortcut response
+    if (target.result.type === "error" || test.result.type === "error") {
+        const message =
+            isParseError(target.result) ?
+                target.result.value :
+                (isParseError(test.result) ? test.result.value : "No error found");
+
+        response.containsError = true;
+        response.error = { message: message };
+        response.isEqual = false;
+        return response;
+    }
+    if (test.result.type !== target.result.type) {
+        response.expectedType = target.result.type;
+        response.typeMismatch = true;
+        response.isEqual = false;
+        return response;
+    }
+
+    return checkNodesEqual(test.result, target.result, response);
+}
+
+export const exportedForTesting = {
+    flattenNode,
+    checkCoefficient,
+    typesMatch,
+    listComparison,
+    checkNodesEqual
 }
