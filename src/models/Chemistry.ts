@@ -1,4 +1,5 @@
 import { CheckerResponse, ChemicalSymbol, Coefficient, ReturnType } from './common'
+import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
 export type State = ''|'(s)'|'(l)'|'(g)'|'(m)'|'(aq)';
@@ -283,7 +284,7 @@ function listComparison<T>(
 
         if (failed) {
             // Try to get some new information otherwise use the passed response
-            const returnResponse = currResponse ?? response;
+            const returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
             return returnResponse;
         }
@@ -297,6 +298,13 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             test.value === target.value &&
             test.coeff === target.coeff;
         response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+
+        if (response.balanceCount) {
+            response.balanceCount[test.value] = (response.balanceCount[test.value] ?? 0) + test.coeff;
+        } else {
+            response.balanceCount = {} as Record<ChemicalSymbol, number | undefined>;
+            response.balanceCount[test.value] = test.coeff;
+        }
         return response;
     }
     else if (isBracket(test) && isBracket(target)) {
@@ -304,6 +312,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
+
+        if (newResponse.balanceCount) {
+            for (const [key, value] of Object.entries(newResponse.balanceCount)) {
+                newResponse.balanceCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+            };
+        }
 
         return newResponse;
     }
@@ -341,6 +355,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
                 const newResponse = checkNodesEqual(test[0], target[0], response);
                 newResponse.isEqual = newResponse.isEqual && test[1] === target[1];
+                newResponse.chargeCount = (newResponse.chargeCount ?? 0) + test[1];
                 return newResponse;
             }
             return listComparison(test.molecules, target.molecules, response, comparator);
@@ -393,10 +408,21 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isStatement(test) && isStatement(target)) {
         const leftResponse = checkNodesEqual(test.left, target.left, response);
-        const rightResponse = checkNodesEqual(test.right, target.right, leftResponse);
 
-        rightResponse.isEqual = rightResponse.isEqual && test.arrow === target.arrow;
-        return rightResponse;
+        const leftBalanceCount = structuredClone(leftResponse.balanceCount);
+        const leftChargeCount = structuredClone(leftResponse.chargeCount);
+        leftResponse.balanceCount = {} as Record<ChemicalSymbol, number>;
+        leftResponse.chargeCount = 0;
+
+        const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
+
+        console.log(leftChargeCount, finalResponse.chargeCount);
+        finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
+        finalResponse.sameArrow = test.arrow === target.arrow;
+        finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.balanceCount)
+        finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
+
+        return finalResponse;
     } else {
         // There was a type mismatch
         response.isEqual = false;
@@ -414,7 +440,9 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         sameCoefficient: true,
         isBalanced: true,
         isEqual: true,
-        isNuclear: false
+        isNuclear: false,
+        balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
+        chargeCount: 0
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
