@@ -17,7 +17,9 @@ export interface CheckerResponse {
     typeMismatch: boolean;
     sameState: boolean;
     sameCoefficient: boolean;
+    sameArrow?: boolean;
+    balancedCharge?: boolean;
     validAtomicNumber?: boolean;
-    balanceCount?: {[element: string]: number};
+    balanceCount?: Record<ChemicalSymbol, number | undefined>;
     chargeCount?: number
 }
