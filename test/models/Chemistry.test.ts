@@ -1,6 +1,6 @@
 import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST } from "../../src/models/Chemistry";
-import { ChemicalSymbol, type CheckerResponse } from "../../src/models/common";
-const { listComparison, checkNodesEqual } = exportedForTesting;
+import { ChemicalSymbol, CheckerResponse, listComparison } from "../../src/models/common";
+const { checkNodesEqual } = exportedForTesting;
 
 const original = console.error;
 
