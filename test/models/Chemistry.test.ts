@@ -602,7 +602,7 @@ describe("CheckNodesEqual Statement", () => {
 
             // expression is otherwise neutral
             const chargedExpr: Expression = structuredClone(expression);
-            if (chargedExpr.terms) chargedExpr.terms[1] = chargedTerm;
+            chargedExpr.terms?.push(chargedTerm);
 
             const balancedCharges: Statement = structuredClone(statement);
             balancedCharges.left = structuredClone(chargedExpr);
@@ -610,7 +610,6 @@ describe("CheckNodesEqual Statement", () => {
 
             const unbalancedCharges: Statement = structuredClone(statement);
             unbalancedCharges.left = structuredClone(chargedExpr);
-            unbalancedCharges.right = structuredClone(expression);
 
             // Assert
             expect(
