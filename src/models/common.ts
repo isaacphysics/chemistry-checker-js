@@ -17,11 +17,16 @@ export interface CheckerResponse {
     typeMismatch: boolean;
     sameState: boolean;
     sameCoefficient: boolean;
+    // properties dependent on type
     sameArrow?: boolean;
     balancedCharge?: boolean;
     validAtomicNumber?: boolean;
-    balanceCount?: Record<ChemicalSymbol, number | undefined>;
-    chargeCount?: number
+    balancedAtom?: boolean;
+    balancedMass?: boolean;
+    // book keeping
+    atomCount?: Record<ChemicalSymbol, number | undefined>;
+    chargeCount?: number;
+    nucleonCount?: [number, number];
 }
 
 export function listComparison<T>(

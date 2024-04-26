@@ -258,11 +258,11 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             test.coeff === target.coeff;
         response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
 
-        if (response.balanceCount) {
-            response.balanceCount[test.value] = (response.balanceCount[test.value] ?? 0) + test.coeff;
+        if (response.atomCount) {
+            response.atomCount[test.value] = (response.atomCount[test.value] ?? 0) + test.coeff;
         } else {
-            response.balanceCount = {} as Record<ChemicalSymbol, number | undefined>;
-            response.balanceCount[test.value] = test.coeff;
+            response.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
+            response.atomCount[test.value] = test.coeff;
         }
         return response;
     }
@@ -272,9 +272,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
 
-        if (newResponse.balanceCount) {
-            for (const [key, value] of Object.entries(newResponse.balanceCount)) {
-                newResponse.balanceCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+        if (newResponse.atomCount) {
+            for (const [key, value] of Object.entries(newResponse.atomCount)) {
+                newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
             };
         }
 
@@ -368,9 +368,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isStatement(test) && isStatement(target)) {
         const leftResponse = checkNodesEqual(test.left, target.left, response);
 
-        const leftBalanceCount = structuredClone(leftResponse.balanceCount);
+        const leftBalanceCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
-        leftResponse.balanceCount = {} as Record<ChemicalSymbol, number>;
+        leftResponse.atomCount = {} as Record<ChemicalSymbol, number>;
         leftResponse.chargeCount = 0;
 
         const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
@@ -378,7 +378,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         console.log(leftChargeCount, finalResponse.chargeCount);
         finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
         finalResponse.sameArrow = test.arrow === target.arrow;
-        finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.balanceCount)
+        finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
 
         return finalResponse;

@@ -25,7 +25,7 @@ const response: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: false,
-    balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
+    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0
 };
 // Alternative response object
@@ -39,7 +39,7 @@ const newResponse: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: false,
-    balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
+    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0
 };
 
@@ -184,7 +184,7 @@ describe("checkNodesEqual Elements", () => {
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
-            expect(testResponse.balanceCount?.C).toBe(1);
+            expect(testResponse.atomCount?.C).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when elements don't match",
@@ -201,11 +201,11 @@ describe("checkNodesEqual Elements", () => {
             // Assert
             expect(elementIncorrect.isEqual).toBeFalsy();
             expect(elementIncorrect.sameCoefficient).toBeTruthy();
-            expect(elementIncorrect.balanceCount?.O).toBe(1);
+            expect(elementIncorrect.atomCount?.O).toBe(1);
 
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
-            expect(coeffIncorrect.balanceCount?.C).toBe(2);
+            expect(coeffIncorrect.atomCount?.C).toBe(2);
         }
     );
 });
@@ -221,7 +221,7 @@ describe("checkNodesEqual Brackets", () => {
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
-            expect(testResponse.balanceCount?.O).toBe(1);
+            expect(testResponse.atomCount?.O).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when brackets don't match",
@@ -235,7 +235,7 @@ describe("checkNodesEqual Brackets", () => {
             // Assert
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
-            expect(coeffIncorrect.balanceCount?.O).toBe(2);
+            expect(coeffIncorrect.atomCount?.O).toBe(2);
         }
     );
 });
@@ -251,8 +251,8 @@ describe("checkNodesEqual Compounds", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.balanceCount?.C).toBe(1)
-            expect(testResponse.balanceCount?.O).toBe(1)
+            expect(testResponse.atomCount?.C).toBe(1)
+            expect(testResponse.atomCount?.O).toBe(1)
         }
     );
     it("Returns falsy CheckerResponse when compounds don't match",
@@ -329,8 +329,8 @@ describe("CheckNodesEqual Ions", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.balanceCount?.O).toBe(1);
-            expect(testResponse.balanceCount?.Na).toBe(1);
+            expect(testResponse.atomCount?.O).toBe(1);
+            expect(testResponse.atomCount?.Na).toBe(1);
             expect(testResponse.chargeCount).toBe(0);
         }
     );
@@ -398,7 +398,7 @@ describe("CheckNodesEqual Term", () => {
             let testResponse = checkNodesEqual(perturbedTerm, term, structuredClone(response))
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameState).toBeTruthy();
-            expect(testResponse.balanceCount?.O).toBe(1);
+            expect(testResponse.atomCount?.O).toBe(1);
 
             // Term with a state
             perturbedTerm = structuredClone(term);
@@ -469,7 +469,7 @@ describe("CheckNodesEqual Term", () => {
             const testResponse = checkNodesEqual(complexTerm, term, structuredClone(response));
 
             // Assert
-            expect(testResponse.balanceCount).toEqual(compoundResponse.balanceCount);
+            expect(testResponse.atomCount).toEqual(compoundResponse.atomCount);
             expect(testResponse.chargeCount).toEqual(compoundResponse.chargeCount);
         }
     );
@@ -485,7 +485,7 @@ describe("CheckNodesEqual Expression", () => {
             const testResponse: CheckerResponse = checkNodesEqual(permutedExpression, expression, structuredClone(response));
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.balanceCount?.O).toBe(2);
+            expect(testResponse.atomCount?.O).toBe(2);
         }
     );
     it("Returns falsy CheckerResponse when expressions do not match",
