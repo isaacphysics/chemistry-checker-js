@@ -1,4 +1,4 @@
-import { ChemicalSymbol, Coefficient } from './common'
+import { CheckerResponse, ChemicalSymbol } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
@@ -33,7 +33,6 @@ export interface Isotope extends ASTNode {
     element: ChemicalSymbol;
     mass: number;
     atomic: number;
-    charge: number;
 }
 export function isIsotope(node: ASTNode): node is Isotope {
     return node.type === 'isotope';
@@ -42,7 +41,7 @@ export function isIsotope(node: ASTNode): node is Isotope {
 export interface Term extends ASTNode {
     type: 'term';
     value: Isotope | Particle;
-    coeff: Coefficient;
+    coeff: number;
     isParticle: boolean;
 }
 export function isTerm(node: ASTNode): node is Term {
@@ -120,4 +119,28 @@ function flattenNode<T extends ASTNode>(node: T): T {
 export function flatten(ast: NuclearAST): NuclearAST {
     const flatResult: Result = flattenNode(ast.result);
     return { result: flatResult };
+}
+
+function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
+    return response;
+}
+
+export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
+    return {
+        containsError: false,
+        error: {
+            message: ''
+        },
+        expectedType: 'term',
+        isBalanced: false,
+        isEqual: false,
+        isNuclear: false,
+        typeMismatch: false,
+        sameState: false,
+        sameCoefficient: false
+    }
+}
+
+export const exportedForTesting = {
+    checkNodesEqual
 }
