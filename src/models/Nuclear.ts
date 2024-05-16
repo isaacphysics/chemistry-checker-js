@@ -1,8 +1,44 @@
-import { CheckerResponse, ChemicalSymbol } from './common'
+import { CheckerResponse, ChemicalSymbol, ReturnType, chemicalSymbol, listComparison } from './common'
 
-export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
+export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
 export type Result = Statement | Expression | Term | ParseError;
+
+function isValidAtomicNumber(test: Particle | Isotope): boolean {
+    if (isIsotope(test)) {
+        return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
+            test.mass > test.atomic;
+    }
+    switch(test.particle) {
+        case "alphaparticle":
+            return test.mass === 4 &&
+                test.atomic === 2;
+        case "betaparticle":
+            return test.mass === 0 &&
+                test.atomic === -1;
+        case "gammaray":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "neutrino":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "antineutrino":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "electron":
+            return test.mass === 0 &&
+                test.atomic === -1;
+        case "positron":
+            return test.mass === 0 &&
+                test.atomic === 1;
+        case "neutron":
+            return test.mass === 1 &&
+                test.atomic === 0;
+        case "proton":
+            return test.mass === 1 &&
+                test.atomic === 1;
+    }
+}
 
 interface ASTNode {
     type: Type;
@@ -122,23 +158,133 @@ export function flatten(ast: NuclearAST): NuclearAST {
 }
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
-    return response;
+    if (isParticle(test) && isParticle(target)) {
+        response.isEqual = response.isEqual &&
+            test.particle === target.particle &&
+            isValidAtomicNumber(test);
+        response.validAtomicNumber = isValidAtomicNumber(test);
+
+        if (response.nucleonCount) {
+            response.nucleonCount = [
+                response.nucleonCount[0] + test.atomic,
+                response.nucleonCount[1] + test.mass
+            ];
+        } else {
+            response.nucleonCount = [test.atomic, test.mass];
+        }
+
+        return response;
+    } else if (isIsotope(test) && isIsotope(target)) {
+        response.isEqual = response.isEqual &&
+            test.element === target.element &&
+            isValidAtomicNumber(test);
+        response.validAtomicNumber = isValidAtomicNumber(test);
+
+        if (response.nucleonCount) {
+            response.nucleonCount = [
+                response.nucleonCount[0] + test.atomic,
+                response.nucleonCount[1] + test.mass
+            ];
+        } else {
+            response.nucleonCount = [test.atomic, test.mass];
+        }
+
+        return response;
+    } else if (isTerm(test) && isTerm(target)) {
+        if ((test.isParticle && !target.isParticle) ||
+            (!test.isParticle && target.isParticle)) {
+            response.isEqual = false;
+            return response;
+        }
+
+        const newResponse = checkNodesEqual(test.value, target.value, response);
+
+        newResponse.isEqual = newResponse.isEqual &&
+            test.coeff === target.coeff;
+        newResponse.sameCoefficient = test.coeff === target.coeff;
+
+        if (newResponse.nucleonCount) {
+            newResponse.nucleonCount = [
+                newResponse.nucleonCount[0] * test.coeff,
+                newResponse.nucleonCount[1] * test.coeff,
+            ]
+        }
+
+        return newResponse;
+    } else if (isExpression(test) && isExpression(target)) {
+        if (test.terms && target.terms) {
+            if (test.terms.length !== target.terms.length) {
+                // fail early if molecule lengths not the same
+                response.isEqual = false;
+                return response;
+            }
+
+            return listComparison(test.terms, target.terms, response, checkNodesEqual);
+        } else {
+            console.error("[server] Encountered unflattened AST. Returning error");
+            response.containsError = true;
+            response.error = { message: "Received unflattened AST during checking process." };
+            return response;
+        }
+    } else if (isStatement(test) && isStatement(target)) {
+        const leftResponse = checkNodesEqual(test.left, target.left, response);
+        const leftNucleonCount = leftResponse.nucleonCount;
+        leftResponse.nucleonCount = [0, 0];
+
+        const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
+
+        finalResponse.isBalanced = leftNucleonCount && finalResponse.nucleonCount ?
+            leftNucleonCount[0] === finalResponse.nucleonCount[0] &&
+            leftNucleonCount[1] === finalResponse.nucleonCount[1] :
+            false;
+        finalResponse.balancedAtom = leftNucleonCount && finalResponse.nucleonCount ?
+            leftNucleonCount[0] === finalResponse.nucleonCount[0] :
+            false;
+        finalResponse.balancedMass = leftNucleonCount && finalResponse.nucleonCount ?
+            leftNucleonCount[1] === finalResponse.nucleonCount[1] :
+            false;
+
+        return finalResponse
+    } else {
+        response.isEqual = false;
+        return response;
+    }
 }
 
 export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    return {
+    const response = {
         containsError: false,
-        error: {
-            message: ''
-        },
-        expectedType: 'term',
-        isBalanced: false,
-        isEqual: false,
-        isNuclear: false,
+        error: { message: "" },
+        expectedType: "unknown" as ReturnType,
         typeMismatch: false,
-        sameState: false,
-        sameCoefficient: false
+        sameState: true,
+        sameCoefficient: true,
+        isBalanced: true,
+        isEqual: true,
+        isNuclear: true,
     }
+    // Return shortcut response
+    if (target.result.type === "error" || test.result.type === "error") {
+        const message =
+            isParseError(target.result) ?
+                target.result.value :
+                (isParseError(test.result) ? test.result.value : "No error found");
+
+        response.containsError = true;
+        response.error = { message: message };
+        response.isEqual = false;
+        return response;
+   }
+    if (test.result.type !== target.result.type) {
+        response.expectedType = target.result.type;
+        response.typeMismatch = true;
+        response.isEqual = false;
+        return response;
+    }
+
+    const newResponse = checkNodesEqual(test.result, target.result, response);
+    delete newResponse.nucleonCount;
+    return newResponse;
 }
 
 export const exportedForTesting = {
