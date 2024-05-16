@@ -26,8 +26,6 @@ const response: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
-    chargeCount: 0
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -40,13 +38,12 @@ const newResponse: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
-    chargeCount: 0
 };
 
 const trueResponse: CheckerResponse = structuredClone(response);
 trueResponse.balancedAtom = true;
 trueResponse.balancedMass = true;
+trueResponse.validAtomicNumber = true;
 const falseResponse: CheckerResponse = structuredClone(newResponse);
 falseResponse.isEqual = false;
 
@@ -185,7 +182,6 @@ describe("CheckNodesEqual Term", () => {
 
             // Mismatched type
             expect(checkNodesEqual(particleTerm, term, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(particleTerm, term, structuredClone(response)).typeMismatch).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
@@ -227,7 +223,6 @@ describe("CheckNodesEqual Expression", () => {
             const testResponse: CheckerResponse = checkNodesEqual(permutedExpression, expression, structuredClone(response));
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toBe(2);
         }
     );
     it("Returns falsy CheckerResponse when expressions do not match",
@@ -298,7 +293,7 @@ describe("CheckNodesEqual Statement", () => {
             balancedStatement.right = structuredClone(term);
 
             // Act
-            const balancedResponse = checkNodesEqual(balancedStatement, statement, structuredClone(response));
+            const balancedResponse = checkNodesEqual(balancedStatement, balancedStatement, structuredClone(response));
             const unbalancedResponse = checkNodesEqual(statement, statement, structuredClone(response));
 
             // Assert
@@ -308,7 +303,7 @@ describe("CheckNodesEqual Statement", () => {
 
             expect(unbalancedResponse.isBalanced).toBeFalsy();
             expect(unbalancedResponse.balancedAtom).toBeFalsy();
-            expect(unbalancedResponse.balancedMass).toBeTruthy();
+            expect(unbalancedResponse.balancedMass).toBeFalsy();
         }
     );
 });

@@ -375,7 +375,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
 
-        console.log(leftChargeCount, finalResponse.chargeCount);
         finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
         finalResponse.sameArrow = test.arrow === target.arrow;
         finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
