@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, Coefficient, ReturnType, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, Coefficient, listComparison } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -392,7 +392,8 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
-        expectedType: "unknown" as ReturnType,
+        expectedType: target.result.type,
+        receivedType: test.result.type,
         typeMismatch: false,
         sameState: true,
         sameCoefficient: true,
@@ -421,7 +422,10 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         return response;
     }
 
-    return checkNodesEqual(test.result, target.result, response);
+    const newResponse = checkNodesEqual(test.result, target.result, response);
+    delete newResponse.chargeCount;
+    delete newResponse.atomCount;
+    return newResponse;
 }
 
 export const exportedForTesting = {

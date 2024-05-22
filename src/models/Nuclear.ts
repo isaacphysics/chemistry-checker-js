@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, ReturnType, chemicalSymbol, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, chemicalSymbol, listComparison } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
@@ -255,7 +255,8 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
-        expectedType: "unknown" as ReturnType,
+        expectedType: target.result.type,
+        receivedType: test.result.type,
         typeMismatch: false,
         sameState: true,
         sameCoefficient: true,
@@ -276,7 +277,6 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
         return response;
    }
     if (test.result.type !== target.result.type) {
-        response.expectedType = target.result.type;
         response.typeMismatch = true;
         response.isEqual = false;
         return response;
