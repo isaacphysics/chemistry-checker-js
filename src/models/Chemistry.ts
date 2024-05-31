@@ -403,6 +403,7 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         typeMismatch: false,
         sameState: true,
         sameCoefficient: true,
+        sameArrow: true,
         isBalanced: true,
         isEqual: true,
         isNuclear: false,
