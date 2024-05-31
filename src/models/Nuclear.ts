@@ -4,42 +4,6 @@ export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
 export type Result = Statement | Expression | Term | ParseError;
 
-function isValidAtomicNumber(test: Particle | Isotope): boolean {
-    if (isIsotope(test)) {
-        return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
-            test.mass > test.atomic;
-    }
-    switch(test.particle) {
-        case "alphaparticle":
-            return test.mass === 4 &&
-                test.atomic === 2;
-        case "betaparticle":
-            return test.mass === 0 &&
-                test.atomic === -1;
-        case "gammaray":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "neutrino":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "antineutrino":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "electron":
-            return test.mass === 0 &&
-                test.atomic === -1;
-        case "positron":
-            return test.mass === 0 &&
-                test.atomic === 1;
-        case "neutron":
-            return test.mass === 1 &&
-                test.atomic === 0;
-        case "proton":
-            return test.mass === 1 &&
-                test.atomic === 1;
-    }
-}
-
 interface ASTNode {
     type: Type;
 }
@@ -155,6 +119,50 @@ function flattenNode<T extends ASTNode>(node: T): T {
 export function flatten(ast: NuclearAST): NuclearAST {
     const flatResult: Result = flattenNode(ast.result);
     return { result: flatResult };
+}
+
+function isValidAtomicNumber(test: Particle | Isotope): boolean {
+    if (isIsotope(test)) {
+        return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
+            test.mass > test.atomic;
+    }
+    switch(test.particle) {
+        case "alphaparticle":
+            return test.mass === 4 &&
+                test.atomic === 2;
+        case "betaparticle":
+            return test.mass === 0 &&
+                test.atomic === -1;
+        case "gammaray":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "neutrino":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "antineutrino":
+            return test.mass === 0 &&
+                test.atomic === 0;
+        case "electron":
+            return test.mass === 0 &&
+                test.atomic === -1;
+        case "positron":
+            return test.mass === 0 &&
+                test.atomic === 1;
+        case "neutron":
+            return test.mass === 1 &&
+                test.atomic === 0;
+        case "proton":
+            return test.mass === 1 &&
+                test.atomic === 1;
+    }
+}
+
+function checkParticlesEqual(test: Particle, target: Particle): boolean {
+    if (test.particle === "betaparticle" || test.particle === "electron") {
+        return target.particle === "betaparticle" || target.particle === "electron";
+    } else {
+        return test.particle === target.particle;
+    }
 }
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
