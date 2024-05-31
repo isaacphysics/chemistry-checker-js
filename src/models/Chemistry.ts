@@ -122,8 +122,10 @@ function flattenNode<T extends ASTNode>(node: T): T {
                     }
                 }
 
-                // Append the current element
-                elements.push(node.head)
+                let flatHead: Element | Bracket = flattenNode(node.head);
+
+                // Append the current flattened head
+                elements.push(flatHead)
 
                 // Update and return the node
                 node.elements = elements;
@@ -141,8 +143,10 @@ function flattenNode<T extends ASTNode>(node: T): T {
                     molecules = flatChain.molecules ?? [];
                 }
 
+                const flatMolecule: Molecule = flattenNode(node.molecule)
+
                 // Append the current values
-                molecules.push([node.molecule, node.charge]);
+                molecules.push([flatMolecule, node.charge]);
 
                 // Update and return the node
                 node.molecules = molecules;
@@ -165,8 +169,10 @@ function flattenNode<T extends ASTNode>(node: T): T {
                     }
                 }
 
-                // Append the current term
-                terms.push(node.term);
+                const flatTerm: Term = flattenNode(node.term);
+
+                // Append the current flattened term
+                terms.push(flatTerm);
 
                 // Update and return the node
                 node.terms = terms;
