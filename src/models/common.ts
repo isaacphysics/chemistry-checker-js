@@ -3,6 +3,8 @@ export type ChemicalSymbol = typeof chemicalSymbol[number];
 
 export type ReturnType = 'term'|'expr'|'statement'|'error';
 
+type Aggregates = 'atomCount' | 'chargeCount' | 'nucleonCount';
+
 export interface Coefficient {
     numerator: number;
     denominator: number;
@@ -40,6 +42,15 @@ export function listComparison<T>(
     // TODO: look at a more efficient method of comparison
     const indices: number[] = []; // the indices on which a match was made
     let possibleResponse = structuredClone(response);
+
+    // Get aggregates
+    // TODO: discuss and see if a better solution exists
+    let aggregatesResponse = structuredClone(response);
+    for (let item of testList) {
+        // This will always pass, this is to get the accurate aggregate bookkeeping values
+        aggregatesResponse = comparator(item, item, aggregatesResponse);
+    }
+
     for (let testItem of testList) {
         let index = 0;
         let failed = true;
@@ -66,9 +77,17 @@ export function listComparison<T>(
             // Try to get some new information otherwise use the passed response
             const returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
+
+            // Attach actual aggregate values
+            returnResponse.chargeCount = aggregatesResponse.chargeCount;
+            returnResponse.atomCount = aggregatesResponse.atomCount;
+            returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
+
             return returnResponse;
         }
     }
+
+    // If this point is reached the correct aggregate values have been found
     return possibleResponse
 }
 
