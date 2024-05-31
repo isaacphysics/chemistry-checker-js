@@ -168,7 +168,7 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
         response.isEqual = response.isEqual &&
-            test.particle === target.particle &&
+            checkParticlesEqual(test, target) &&
             isValidAtomicNumber(test);
         response.validAtomicNumber = isValidAtomicNumber(test);
 
