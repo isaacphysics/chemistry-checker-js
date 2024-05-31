@@ -29,7 +29,7 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     res.status(201).send(result);
 
-    const str: string = JSON.stringify(req.body, null, 4);
+    const str: string = JSON.stringify(result, null, 4);
     console.log(`[server]: checker response ${str}`);
 });
 
