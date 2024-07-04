@@ -1,0 +1,8 @@
+node_modules
+Dockerfile
+.dockerignore
+
+coverage
+test
+jest.config.ts
+nodemon.json
