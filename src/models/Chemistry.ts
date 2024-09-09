@@ -25,6 +25,7 @@ export interface Element extends ASTNode {
     type: 'element';
     value: ChemicalSymbol;
     coeff: number;
+    bracketed?: boolean;
 }
 export function isElement(node: ASTNode): node is Element {
     return node.type === 'element';
@@ -42,6 +43,7 @@ export function isBracket(node: ASTNode): node is Bracket {
 export interface Compound extends ASTNode {
     type: 'compound';
     head: Element | Bracket;
+    bracketed?: boolean;
     tail?: Element | Bracket | Compound;
     elements?: (Element | Bracket)[];
 }
@@ -264,23 +266,41 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             test.coeff === target.coeff;
         response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
 
-        if (response.atomCount) {
-            response.atomCount[test.value] = (response.atomCount[test.value] ?? 0) + test.coeff;
+        if (test.bracketed) {
+            if (response.bracketAtomCount) {
+                response.bracketAtomCount[test.value] = (response.bracketAtomCount[test.value] ?? 0) + test.coeff;
+            } else {
+                response.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                response.bracketAtomCount[test.value] = test.coeff;
+            }
         } else {
-            response.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
-            response.atomCount[test.value] = test.coeff;
+            if (response.termAtomCount) {
+                response.termAtomCount[test.value] = (response.termAtomCount[test.value] ?? 0) + test.coeff;
+            } else {
+                response.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                response.termAtomCount[test.value] = test.coeff;
+            }
         }
         return response;
     }
     else if (isBracket(test) && isBracket(target)) {
+        test.compound.bracketed = true;
+        target.compound.bracketed = true;
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
 
-        if (newResponse.atomCount) {
-            for (const [key, value] of Object.entries(newResponse.atomCount)) {
-                newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+        if (newResponse.bracketAtomCount) {
+            for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
+                if (newResponse.termAtomCount) {
+                    newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
+                }
+                else {
+                    newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                    newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+                }
+                newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
             };
         }
 
@@ -299,6 +319,17 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 // fail early if the number of brackets and elements don't match
                 response.isEqual = false;
                 return response;
+            if (test.bracketed) {
+                for (let element of test.elements) {
+                    if (element.type === "element") {
+                        element.bracketed = true;
+                    } else if (element.type === "bracket") {
+                        console.error("[server] Encountered nested brackets. Returning error");
+                        response.containsError = true;
+                        response.error = { message: "Received nested brackets during checking process." };
+                        return response;
+                    }
+                }
             }
 
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
@@ -351,6 +382,19 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             // TODO: add a new property stating the hydrate was wrong?
             newResponse.isEqual = newResponse.isEqual && test.hydrate === target.hydrate;
         } // else the 'isEqual' will already be false from the checkNodesEqual above
+
+        if (newResponse.termAtomCount) {
+            for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
+                if (newResponse.atomCount) {
+                    newResponse.atomCount[key as ChemicalSymbol] = (newResponse.atomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff.numerator;
+                }
+                else {
+                    newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                    newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff.numerator;
+                }
+                newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+            };
+        }
 
         return newResponse;
     }
@@ -431,6 +475,8 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
     delete newResponse.chargeCount;
+    delete newResponse.termAtomCount;
+    delete newResponse.bracketAtomCount;
     delete newResponse.atomCount;
     return newResponse;
 }

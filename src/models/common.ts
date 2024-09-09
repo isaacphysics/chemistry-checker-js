@@ -28,6 +28,8 @@ export interface CheckerResponse {
     balancedAtom?: boolean;
     balancedMass?: boolean;
     // book keeping
+    termAtomCount?: Record<ChemicalSymbol, number | undefined>;
+    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
     atomCount?: Record<ChemicalSymbol, number | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
@@ -80,6 +82,8 @@ export function listComparison<T>(
 
             // Attach actual aggregate values
             returnResponse.chargeCount = aggregatesResponse.chargeCount;
+            returnResponse.bracketAtomCount = aggregatesResponse.bracketAtomCount;
+            returnResponse.termAtomCount = aggregatesResponse.termAtomCount;
             returnResponse.atomCount = aggregatesResponse.atomCount;
             returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
 
