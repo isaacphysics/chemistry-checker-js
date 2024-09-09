@@ -18,7 +18,7 @@ afterEach(() => {
 const response: CheckerResponse = {
     containsError: false,
     error: { message: "" },
-    expectedType: "unknown",
+    expectedType: "statement",
     typeMismatch: false,
     sameState: true,
     sameCoefficient: true,
@@ -26,13 +26,14 @@ const response: CheckerResponse = {
     isEqual: true,
     isNuclear: false,
     atomCount: {} as Record<ChemicalSymbol, number | undefined>,
-    chargeCount: 0
+    chargeCount: 0,
+    receivedType: "statement"
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
     containsError: false,
     error: { message: "" },
-    expectedType: "unknown",
+    expectedType: "statement",
     typeMismatch: false,
     sameState: false,
     sameCoefficient: false,
@@ -40,7 +41,8 @@ const newResponse: CheckerResponse = {
     isEqual: true,
     isNuclear: false,
     atomCount: {} as Record<ChemicalSymbol, number | undefined>,
-    chargeCount: 0
+    chargeCount: 0,
+    receivedType: "statement"
 };
 
 const trueResponse: CheckerResponse = structuredClone(newResponse);
@@ -640,7 +642,7 @@ describe("Check", () => {
             // Assert
             expect(response.error).toBeDefined();
             expect(response.error?.message).toBe("Sphinx of black quartz, judge my vow");
-            expect(response.expectedType).toBe("unknown");
+            expect(response.expectedType).toBe("statement");
         }
     );
     it("Returns type mismatch when appropriate",

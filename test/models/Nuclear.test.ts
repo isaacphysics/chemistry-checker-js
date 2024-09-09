@@ -19,13 +19,14 @@ afterEach(() => {
 const response: CheckerResponse = {
     containsError: false,
     error: { message: "" },
-    expectedType: "unknown",
+    expectedType: "statement",
     typeMismatch: false,
     sameState: true,
     sameCoefficient: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    receivedType: "statement"
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -38,6 +39,7 @@ const newResponse: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    receivedType: "unknown"
 };
 
 const trueResponse: CheckerResponse = structuredClone(response);
@@ -335,7 +337,7 @@ describe("Check", () => {
             // Assert
             expect(response.error).toBeDefined();
             expect(response.error?.message).toBe("Sphinx of black quartz, judge my vow");
-            expect(response.expectedType).toBe("unknown");
+            expect(response.expectedType).toBe("statement");
         }
     );
     it("Returns type mismatch when appropriate",
