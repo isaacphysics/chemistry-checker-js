@@ -21,6 +21,7 @@ export interface CheckerResponse {
     typeMismatch: boolean;
     sameState: boolean;
     sameCoefficient: boolean;
+    allowPermutations: boolean;
     // properties dependent on type
     sameArrow?: boolean;
     balancedCharge?: boolean;
@@ -28,6 +29,7 @@ export interface CheckerResponse {
     balancedAtom?: boolean;
     balancedMass?: boolean;
     // book keeping
+    checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
     bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
     atomCount?: Record<ChemicalSymbol, number | undefined>;

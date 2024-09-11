@@ -26,7 +26,8 @@ const response: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    receivedType: "statement"
+    receivedType: "statement",
+    allowPermutations: false
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -39,7 +40,8 @@ const newResponse: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    receivedType: "unknown"
+    receivedType: "unknown",
+    allowPermutations: false
 };
 
 const trueResponse: CheckerResponse = structuredClone(response);

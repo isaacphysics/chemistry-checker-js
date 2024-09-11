@@ -26,7 +26,8 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const target: ChemAST = flatten(parseChemistryExpression(req.body.target)[0]);
     const test: ChemAST = flatten(parseChemistryExpression(req.body.test)[0]);
-    const result: CheckerResponse = check(test, target);
+    const allowPermutations: boolean = req.body.allowPermutations === "true" || false;
+    const result: CheckerResponse = check(test, target, allowPermutations);
 
     res.status(201).send(result);
 

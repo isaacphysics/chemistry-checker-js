@@ -1,6 +1,7 @@
-import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST } from "../../src/models/Chemistry";
+import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, flatten } from "../../src/models/Chemistry";
 import { ChemicalSymbol, CheckerResponse, listComparison } from "../../src/models/common";
 const { checkNodesEqual } = exportedForTesting;
+import { parseChemistryExpression } from "inequality-grammar";
 
 const original = console.error;
 
@@ -27,7 +28,8 @@ const response: CheckerResponse = {
     isNuclear: false,
     atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0,
-    receivedType: "statement"
+    receivedType: "statement",
+    allowPermutations: false
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -42,7 +44,8 @@ const newResponse: CheckerResponse = {
     isNuclear: false,
     atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0,
-    receivedType: "statement"
+    receivedType: "statement",
+    allowPermutations: false
 };
 
 const trueResponse: CheckerResponse = structuredClone(newResponse);
@@ -658,4 +661,16 @@ describe("Check", () => {
             expect(response.expectedType).toBe("expr");
         }
     );
+
+    it("Allows molecule permutations when allowPermutations set", () => { 
+        // Act
+        const unchangedAST: ChemAST = flatten(parseChemistryExpression("C10H22")[0]);
+        const permutedAST: ChemAST = flatten(parseChemistryExpression("CH3(CH2)8CH3")[0]);
+
+        const permutedResponse: CheckerResponse = check(unchangedAST, permutedAST, true);
+        const unpermutedResponse: CheckerResponse = check(unchangedAST, permutedAST, false);
+        // Assert
+        expect(permutedResponse.isEqual).toBeTruthy();
+        expect(unpermutedResponse.isEqual).toBeFalsy();
+    });
 });

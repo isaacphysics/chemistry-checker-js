@@ -261,10 +261,12 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        response.isEqual = response.isEqual &&
-            test.value === target.value &&
-            test.coeff === target.coeff;
-        response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+        if (!response.allowPermutations) {
+            response.isEqual = response.isEqual &&
+                test.value === target.value &&
+                test.coeff === target.coeff;
+            response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+        }
 
         if (test.bracketed) {
             if (response.bracketAtomCount) {
@@ -297,8 +299,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                     newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
                 }
                 else {
-                    newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                    newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+                    newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                    newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
                 }
                 newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
             };
@@ -308,17 +310,20 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
-            // TODO: allow different expansions
 
-            if (test.elements.length !== target.elements.length) {
-                // fail early if molecule lengths not the same
-                response.isEqual = false;
-                return response;
+            if (!response.allowPermutations) {
+                if (test.elements.length !== target.elements.length) {
+                    // fail early if molecule lengths not the same
+                    response.isEqual = false;
+                    return response;
+                }
+                if (!typesMatch(test.elements, target.elements)) {
+                    // fail early if the number of brackets and elements don't match
+                    response.isEqual = false;
+                    return response;
+                }
             }
-            if (!typesMatch(test.elements, target.elements)) {
-                // fail early if the number of brackets and elements don't match
-                response.isEqual = false;
-                return response;
+            
             if (test.bracketed) {
                 for (let element of test.elements) {
                     if (element.type === "element") {
@@ -332,6 +337,15 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 }
             }
 
+            if (response.allowPermutations && !response.checkingPermutations) {
+                const permutationResponse = structuredClone(response);
+                permutationResponse.checkingPermutations = true;
+                const a = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
+                const b = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
+
+                response.isEqual = response.isEqual && isEqual(a.atomCount, b.atomCount) && isEqual(a.termAtomCount, b.termAtomCount);
+                return response
+            } 
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
         } else {
             console.error("[server] Encountered unflattened AST. Returning error");
@@ -438,7 +452,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: ChemAST, target: ChemAST): CheckerResponse {
+export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolean): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
@@ -452,7 +466,8 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         isEqual: true,
         isNuclear: false,
         balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
-        chargeCount: 0
+        chargeCount: 0,
+        allowPermutations: allowPermutations ?? false
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
@@ -472,6 +487,7 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         response.isEqual = false;
         return response;
     }
+
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
     delete newResponse.chargeCount;

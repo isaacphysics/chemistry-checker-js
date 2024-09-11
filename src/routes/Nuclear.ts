@@ -25,7 +25,8 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const target: NuclearAST = flatten(parseNuclearExpression(req.body.target)[0]);
     const test: NuclearAST = flatten(parseNuclearExpression(req.body.test)[0]);
-    const result: CheckerResponse = check(test, target);
+    const allowPermutations: boolean = req.body.allowPermutations === "true" || false;
+    const result: CheckerResponse = check(test, target, allowPermutations);
 
     res.status(201).send(result);
 
