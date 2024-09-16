@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { ValidationChain, body, validationResult } from "express-validator";
 import { parseNuclearExpression } from "inequality-grammar";
-import { check, flatten } from "../models/Nuclear";
+import { check, augment } from "../models/Nuclear";
 import { CheckerResponse } from "../models/common";
 
 const router = Router();
@@ -23,9 +23,9 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const target: NuclearAST = flatten(parseNuclearExpression(req.body.target)[0]);
-    const test: NuclearAST = flatten(parseNuclearExpression(req.body.test)[0]);
-    const allowPermutations: boolean = req.body.allowPermutations === "true" || false;
+    const target: NuclearAST = augment(parseNuclearExpression(req.body.target)[0]);
+    const test: NuclearAST = augment(parseNuclearExpression(req.body.test)[0]);
+    const allowPermutations: boolean = req.body.allowPermutations === "true";
     const result: CheckerResponse = check(test, target, allowPermutations);
 
     res.status(201).send(result);
@@ -42,10 +42,10 @@ router.post('/parse', parseValidationRules, (req: Request, res: Response) => {
     }
 
     const parse: NuclearAST = parseNuclearExpression(req.body.test)[0];
-    const flat: NuclearAST = flatten(parse);
-    res.status(201).send(flat);
+    const augmented: NuclearAST = augment(parse);
+    res.status(201).send(augmented);
 
-    const str: string = JSON.stringify(flat, null, 4);
+    const str: string = JSON.stringify(augmented, null, 4);
     const request: string = req.body.description ? " '" + req.body.description + "'" : "";
     console.log(`[server]: Parsed request${request}`);
     console.log(`[server]: \n${str}`);

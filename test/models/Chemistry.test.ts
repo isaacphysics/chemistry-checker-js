@@ -1,4 +1,4 @@
-import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, flatten } from "../../src/models/Chemistry";
+import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment } from "../../src/models/Chemistry";
 import { ChemicalSymbol, CheckerResponse, listComparison } from "../../src/models/common";
 const { checkNodesEqual } = exportedForTesting;
 import { parseChemistryExpression } from "inequality-grammar";
@@ -13,7 +13,7 @@ afterEach(() => {
     console.error = original;
 })
 
-// TODO: Add flattening tests
+// TODO: Add augmenting tests
 
 // Generic response object
 const response: CheckerResponse = {
@@ -302,20 +302,20 @@ describe("checkNodesEqual Compounds", () => {
             expect(checkNodesEqual(elementMismatch, minimalCompound, structuredClone(response))).toEqual(elementResponse);
         }
     );
-    it("Returns an error if the AST is not flattened",
+    it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            // This is the same as compound just not flattened
-            const unflattenedCompound: Compound = {
+            // This is the same as compound just not augmented
+            const unaugmentedCompound: Compound = {
                 type: "compound",
                 head: { type: "element", value: "O", coeff: 2 },
                 tail: structuredClone(bracket)
             };
 
             // Assert
-            expect(checkNodesEqual(unflattenedCompound, compound, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(unflattenedCompound, compound, structuredClone(response)).error).toEqual(
-                { message: "Received unflattened AST during checking process." }
+            expect(checkNodesEqual(unaugmentedCompound, compound, structuredClone(response)).containsError).toBeTruthy();
+            expect(checkNodesEqual(unaugmentedCompound, compound, structuredClone(response)).error).toEqual(
+                { message: "Received unaugmented AST during checking process." }
             );
 
             expect(console.error).toHaveBeenCalled();
@@ -366,11 +366,11 @@ describe("CheckNodesEqual Ions", () => {
             expect(lengthIncorrect.isEqual).toBeFalsy();
         }
     );
-    it("Returns an error if the AST is not flattened",
+    it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            // This is the same as ion just not flattened
-            const unflattenedIon: Ion = {
+            // This is the same as ion just not augmented
+            const unaugmentedIon: Ion = {
                 type: "ion",
                 molecule: structuredClone(compound),
                 charge: -1,
@@ -382,9 +382,9 @@ describe("CheckNodesEqual Ions", () => {
             };
 
             // Assert
-            expect(checkNodesEqual(unflattenedIon, ion, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(unflattenedIon, ion, structuredClone(response)).error).toEqual(
-                { message: "Received unflattened AST during checking process." }
+            expect(checkNodesEqual(unaugmentedIon, ion, structuredClone(response)).containsError).toBeTruthy();
+            expect(checkNodesEqual(unaugmentedIon, ion, structuredClone(response)).error).toEqual(
+                { message: "Received unaugmented AST during checking process." }
             );
 
             expect(console.error).toHaveBeenCalled();
@@ -523,20 +523,20 @@ describe("CheckNodesEqual Expression", () => {
             ).toEqual(hydrateResponse);
         }
     );
-    it("Returns an error if the AST is not flattened",
+    it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            // This is the same as expression just unflattened
-            const unflattenedExpression: Expression = {
+            // This is the same as expression just unaugmented
+            const unaugmentedExpression: Expression = {
                 type: "expr",
                 term: structuredClone(hydrate),
                 rest: structuredClone(hydrate2)
             }
 
             // Assert
-            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).error).toEqual(
-                { message: "Received unflattened AST during checking process." }
+            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
+            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).error).toEqual(
+                { message: "Received unaugmented AST during checking process." }
             );
 
             expect(console.error).toHaveBeenCalled();
@@ -664,8 +664,8 @@ describe("Check", () => {
 
     it("Allows molecule permutations when allowPermutations set", () => { 
         // Act
-        const unchangedAST: ChemAST = flatten(parseChemistryExpression("C10H22")[0]);
-        const permutedAST: ChemAST = flatten(parseChemistryExpression("CH3(CH2)8CH3")[0]);
+        const unchangedAST: ChemAST = augment(parseChemistryExpression("C10H22")[0]);
+        const permutedAST: ChemAST = augment(parseChemistryExpression("CH3(CH2)8CH3")[0]);
 
         const permutedResponse: CheckerResponse = check(unchangedAST, permutedAST, true);
         const unpermutedResponse: CheckerResponse = check(unchangedAST, permutedAST, false);

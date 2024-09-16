@@ -107,27 +107,43 @@ export interface ChemAST {
     result: Result;
 }
 
-function flattenNode<T extends ASTNode>(node: T): T {
+function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
     switch (node.type) {
         case "compound": {
             if (isCompound(node)) {
-                // Recursively flatten
+                // Recursively augment (preprocess the tree)
                 let elements: (Element | Bracket)[] = [];
                 if (node.tail) {
-                    const flatTail: Element | Bracket | Compound = flattenNode(node.tail);
+                    const augmentedTail: Element | Bracket | Compound = augmentNode(node.tail);
 
-                    if (isCompound(flatTail)) {
-                        elements = flatTail.elements ?? [];
+                    if (isCompound(augmentedTail)) {
+                        elements = augmentedTail.elements ?? [];
                     } else {
-                        elements = [flatTail]
+                        elements = [augmentedTail]
                     }
                 }
 
-                let flatHead: Element | Bracket = flattenNode(node.head);
+                let augmentedHead: Element | Bracket = augmentNode(node.head);
 
-                // Append the current flattened head
-                elements.push(flatHead)
+                // Append the current augmented head
+                elements.push(augmentedHead)
+
+                for (let element of elements) {
+                    if (node.bracketed)  {
+                        if (isCompound(element) || isElement(element)) {
+                            element.bracketed = true;
+                        }
+                        else {
+                            // TODO: allow for nested brackets?
+                            const errorNode = {
+                                type: "error",
+                                value: "Received nested brackets during checking process.", 
+                            };
+                            return errorNode as unknown as T;
+                        }
+                    }
+                }
 
                 // Update and return the node
                 node.elements = elements;
@@ -139,16 +155,16 @@ function flattenNode<T extends ASTNode>(node: T): T {
             if (isIon(node)) {
                 let molecules: [Molecule, number][] = [];
 
-                // Recursively flatten
+                // Recursively augmented
                 if (node.chain) {
-                    const flatChain: Ion = flattenNode(node.chain);
-                    molecules = flatChain.molecules ?? [];
+                    const augmentedChain: Ion = augmentNode(node.chain);
+                    molecules = augmentedChain.molecules ?? [];
                 }
 
-                const flatMolecule: Molecule = flattenNode(node.molecule)
+                const augmentedMolecule: Molecule = augmentNode(node.molecule)
 
                 // Append the current values
-                molecules.push([flatMolecule, node.charge]);
+                molecules.push([augmentedMolecule, node.charge]);
 
                 // Update and return the node
                 node.molecules = molecules;
@@ -160,21 +176,21 @@ function flattenNode<T extends ASTNode>(node: T): T {
             if (isExpression(node)) {
                 let terms: Term[] = [];
 
-                // Recursively flatten
+                // Recursively augmented
                 if (node.rest) {
-                    const flatTerms: Expression | Term = flattenNode(node.rest);
+                    const augmentedTerms: Expression | Term = augmentNode(node.rest);
 
-                    if (isExpression(flatTerms)) {
-                        terms = flatTerms.terms ?? [];
+                    if (isExpression(augmentedTerms)) {
+                        terms = augmentedTerms.terms ?? [];
                     } else {
-                        terms = [flatTerms];
+                        terms = [augmentedTerms];
                     }
                 }
 
-                const flatTerm: Term = flattenNode(node.term);
+                const augmentedTerm: Term = augmentNode(node.term);
 
-                // Append the current flattened term
-                terms.push(flatTerm);
+                // Append the current augmented term
+                terms.push(augmentedTerm);
 
                 // Update and return the node
                 node.terms = terms;
@@ -183,23 +199,24 @@ function flattenNode<T extends ASTNode>(node: T): T {
             }
         }
 
-        // Nodes that do not need flattening but have subtrees
+        // Nodes that do not need  to be augmented but have subtrees
         case "bracket": {
             if(isBracket(node)) {
-                node.compound = flattenNode(node.compound);
+                node.compound.bracketed = true;
+                node.compound = augmentNode(node.compound);
                 return node;
             }
         }
         case "term": {
             if (isTerm(node)) {
-                node.value = flattenNode(node.value);
+                node.value = augmentNode(node.value);
                 return node;
             }
         }
         case "statement": {
             if (isStatement(node)) {
-                node.left = flattenNode(node.left);
-                node.right = flattenNode(node.right);
+                node.left = augmentNode(node.left);
+                node.right = augmentNode(node.right);
                 return node;
             }
         }
@@ -211,9 +228,9 @@ function flattenNode<T extends ASTNode>(node: T): T {
     }
 }
 
-export function flatten(ast: ChemAST): ChemAST {
-    const flatResult: Result = flattenNode(ast.result);
-    return { result: flatResult };
+export function augment(ast: ChemAST): ChemAST {
+    const augmentedResult: Result = augmentNode(ast.result);
+    return { result: augmentedResult };
 }
 
 function checkCoefficient(coeff1: Coefficient, coeff2: Coefficient): boolean {
@@ -286,8 +303,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return response;
     }
     else if (isBracket(test) && isBracket(target)) {
-        test.compound.bracketed = true;
-        target.compound.bracketed = true;
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
@@ -302,8 +317,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                     newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
                     newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
                 }
-                newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
             };
+            newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
         return newResponse;
@@ -323,19 +338,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                     return response;
                 }
             }
-            
-            if (test.bracketed) {
-                for (let element of test.elements) {
-                    if (element.type === "element") {
-                        element.bracketed = true;
-                    } else if (element.type === "bracket") {
-                        console.error("[server] Encountered nested brackets. Returning error");
-                        response.containsError = true;
-                        response.error = { message: "Received nested brackets during checking process." };
-                        return response;
-                    }
-                }
-            }
 
             if (response.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
@@ -348,9 +350,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             } 
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -368,12 +370,13 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 newResponse.chargeCount = (newResponse.chargeCount ?? 0) + test[1];
                 return newResponse;
             }
+
             return listComparison(test.molecules, target.molecules, response, comparator);
 
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -405,9 +408,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 else {
                     newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
                     newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff.numerator;
-                }
-                newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                }  
             };
+            newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
         return newResponse;
@@ -423,9 +426,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -498,6 +501,6 @@ export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolea
 }
 
 export const exportedForTesting = {
-    flattenNode,
+    augmentNode,
     checkNodesEqual
 }
