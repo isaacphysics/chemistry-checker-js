@@ -26,6 +26,7 @@ export interface Element extends ASTNode {
     value: ChemicalSymbol;
     coeff: number;
     bracketed?: boolean;
+    compounded?: boolean;
 }
 export function isElement(node: ASTNode): node is Element {
     return node.type === 'element';
@@ -130,11 +131,15 @@ function augmentNode<T extends ASTNode>(node: T): T {
                 elements.push(augmentedHead)
 
                 for (let element of elements) {
+                    if (isElement(element)) {
+                        element.compounded = true;
+                    } 
+
                     if (node.bracketed)  {
                         if (isCompound(element) || isElement(element)) {
                             element.bracketed = true;
                         }
-                        else {
+                        else { // isBracket
                             // TODO: allow for nested brackets?
                             const errorNode = {
                                 type: "error",
@@ -278,7 +283,7 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        if (!response.allowPermutations) {
+        if (!response.allowPermutations || !test.compounded) {
             response.isEqual = response.isEqual &&
                 test.value === target.value &&
                 test.coeff === target.coeff;
