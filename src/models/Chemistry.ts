@@ -139,8 +139,7 @@ function augmentNode<T extends ASTNode>(node: T): T {
                         if (isCompound(element) || isElement(element)) {
                             element.bracketed = true;
                         }
-                        else { // isBracket
-                            // TODO: allow for nested brackets?
+                        else {
                             const errorNode = {
                                 type: "error",
                                 value: "Received nested brackets during checking process.", 
@@ -332,27 +331,24 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (test.elements && target.elements) {
 
             if (!response.allowPermutations) {
-                if (test.elements.length !== target.elements.length) {
-                    // fail early if molecule lengths not the same
-                    response.isEqual = false;
-                    return response;
+                if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements) || !isEqual(test, target)) {
+                    // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
+                    response.sameElements = false;
+                    response.isEqual = false;             
                 }
-                if (!typesMatch(test.elements, target.elements)) {
-                    // fail early if the number of brackets and elements don't match
-                    response.isEqual = false;
-                    return response;
-                }
-            }
+            } 
 
             if (response.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
-                const a = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
-                const b = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
+                const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
+                const targetResponse = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
 
-                response.isEqual = response.isEqual && isEqual(a.atomCount, b.atomCount) && isEqual(a.termAtomCount, b.termAtomCount);
+                response.isEqual = response.isEqual && isEqual(testResponse.atomCount, targetResponse.atomCount) 
+                                && isEqual(testResponse.termAtomCount, targetResponse.termAtomCount);
                 return response
             } 
+            
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
@@ -442,7 +438,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         const leftBalanceCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
-        leftResponse.atomCount = {} as Record<ChemicalSymbol, number>;
+        leftResponse.atomCount = undefined;
         leftResponse.chargeCount = 0;
 
         const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
@@ -451,6 +447,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         finalResponse.sameArrow = test.arrow === target.arrow;
         finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
+
+        if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
+            finalResponse.isBalanced = true;
+        }
 
         return finalResponse;
     } else {
@@ -470,6 +470,8 @@ export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolea
         sameState: true,
         sameCoefficient: true,
         sameArrow: true,
+        sameBrackets: true,
+        sameElements: true,
         isBalanced: true,
         isEqual: true,
         isNuclear: false,

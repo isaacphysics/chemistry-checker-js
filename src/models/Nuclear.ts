@@ -268,6 +268,7 @@ export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: 
         typeMismatch: false,
         sameState: true,
         sameCoefficient: true,
+        sameElements: true,
         isBalanced: true,
         isEqual: true,
         isNuclear: true,

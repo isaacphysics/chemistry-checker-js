@@ -21,9 +21,11 @@ export interface CheckerResponse {
     typeMismatch: boolean;
     sameState: boolean;
     sameCoefficient: boolean;
+    sameElements: boolean;
     allowPermutations: boolean;
     // properties dependent on type
     sameArrow?: boolean;
+    sameBrackets?: boolean;
     balancedCharge?: boolean;
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
@@ -31,7 +33,7 @@ export interface CheckerResponse {
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
-    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>; // TODO: allow for nested brackets?
+    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
     atomCount?: Record<ChemicalSymbol, number | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
