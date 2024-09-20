@@ -57,7 +57,7 @@ export interface Ion extends ASTNode {
     type: 'ion';
     molecule: Molecule;
     charge: number;
-    chain?: Ion;
+    chain?: Ion | Molecule;
     molecules?: [Molecule, number][];
 }
 export function isIon(node: ASTNode): node is Ion {
@@ -162,8 +162,13 @@ function augmentNode<T extends ASTNode>(node: T): T {
 
                 // Recursively augmented
                 if (node.chain) {
-                    const augmentedChain: Ion = augmentNode(node.chain);
-                    molecules = augmentedChain.molecules ?? [];
+                    const augmentedChain = augmentNode(node.chain);
+
+                    if (isIon(augmentedChain)) {
+                        molecules = augmentedChain.molecules ?? [];
+                    } else {
+                        molecules = [[augmentedChain, 0]]
+                    }
                 }
 
                 const augmentedMolecule: Molecule = augmentNode(node.molecule)
