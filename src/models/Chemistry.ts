@@ -34,6 +34,7 @@ export function isElement(node: ASTNode): node is Element {
 
 export interface Bracket extends ASTNode {
     type: 'bracket';
+    bracket: 'round' | 'square';
     compound: Compound;
     coeff: number;
 }
@@ -310,7 +311,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
-        newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
+        newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && newResponse.sameBrackets;
 
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
