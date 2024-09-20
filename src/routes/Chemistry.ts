@@ -31,8 +31,12 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     res.status(201).send(result);
 
-    const str: string = JSON.stringify(result, null, 4);
-    console.log(`[server]: checker response ${str}`);
+    const resultStr: string = JSON.stringify(result, null, 4);
+
+    console.log(`[server]: question ID: ${req.body.questionID}`);
+    console.log(`[server]: target expression: ${req.body.target}`);
+    console.log(`[server]: test expression: ${req.body.test}`);
+    console.log(`[server]: checker response: ${resultStr}`);
 });
 
 router.post('/parse', parseValidationRules, (req: Request, res: Response) => {

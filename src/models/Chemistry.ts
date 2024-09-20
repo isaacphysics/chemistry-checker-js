@@ -317,7 +317,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && newResponse.sameBrackets;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && test.bracket === target.bracket;
 
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
