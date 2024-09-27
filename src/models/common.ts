@@ -1,7 +1,7 @@
 export const chemicalSymbol = ['H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og'] as const;
 export type ChemicalSymbol = typeof chemicalSymbol[number];
 
-export type ReturnType = 'term'|'expr'|'statement'|'error';
+export type ReturnType = 'term'|'expr'|'statement'|'error'|'unknown';
 
 type Aggregates = 'atomCount' | 'chargeCount' | 'nucleonCount';
 
@@ -21,13 +21,19 @@ export interface CheckerResponse {
     typeMismatch: boolean;
     sameState: boolean;
     sameCoefficient: boolean;
+    sameElements: boolean;
+    allowPermutations: boolean;
     // properties dependent on type
     sameArrow?: boolean;
+    sameBrackets?: boolean;
     balancedCharge?: boolean;
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
     // book keeping
+    checkingPermutations? : boolean;
+    termAtomCount?: Record<ChemicalSymbol, number | undefined>;
+    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
     atomCount?: Record<ChemicalSymbol, number | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
@@ -80,6 +86,8 @@ export function listComparison<T>(
 
             // Attach actual aggregate values
             returnResponse.chargeCount = aggregatesResponse.chargeCount;
+            returnResponse.bracketAtomCount = aggregatesResponse.bracketAtomCount;
+            returnResponse.termAtomCount = aggregatesResponse.termAtomCount;
             returnResponse.atomCount = aggregatesResponse.atomCount;
             returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
 

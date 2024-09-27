@@ -71,21 +71,21 @@ export interface NuclearAST {
     result: Result;
 }
 
-function flattenNode<T extends ASTNode>(node: T): T {
+function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
     switch (node.type) {
         case "expr": {
             if(isExpression(node)) {
                 let terms: Term[] = [];
 
-                // Recursively flatten
+                // Recursively augmentten
                 if (node.rest) {
-                    const flatTerms: Expression | Term = flattenNode(node.rest);
+                    const augmentedTerms: Expression | Term = augmentNode(node.rest);
 
-                    if (isExpression(flatTerms)) {
-                        terms = flatTerms.terms ?? [];
+                    if (isExpression(augmentedTerms)) {
+                        terms = augmentedTerms.terms ?? [];
                     } else {
-                        terms = [flatTerms];
+                        terms = [augmentedTerms];
                     }
 
                     // Append the current term
@@ -102,23 +102,23 @@ function flattenNode<T extends ASTNode>(node: T): T {
         // Nodes with subtrees but no lists
         case "statement": {
             if (isStatement(node)) {
-                node.left = flattenNode(node.left);
-                node.right = flattenNode(node.right);
+                node.left = augmentNode(node.left);
+                node.right = augmentNode(node.right);
                 return node;
             }
         }
 
         // Leaves of the AST
-        case "term": // Term doesn't have subtrees that could be flattened
+        case "term": // Term doesn't have subtrees that could be augmented
         case "error":
         case "particle":
         case "isotope": return node;
     }
 }
 
-export function flatten(ast: NuclearAST): NuclearAST {
-    const flatResult: Result = flattenNode(ast.result);
-    return { result: flatResult };
+export function augment(ast: NuclearAST): NuclearAST {
+    const augmentResult: Result = augmentNode(ast.result);
+    return { result: augmentResult };
 }
 
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
@@ -229,9 +229,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
@@ -259,7 +259,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
+export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: boolean): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
@@ -268,9 +268,11 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
         typeMismatch: false,
         sameState: true,
         sameCoefficient: true,
+        sameElements: true,
         isBalanced: true,
         isEqual: true,
         isNuclear: true,
+        allowPermutations: allowPermutations ?? false,
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {

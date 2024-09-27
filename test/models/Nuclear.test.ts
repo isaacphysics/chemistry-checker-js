@@ -13,19 +13,21 @@ afterEach(() => {
     console.error = original;
 })
 
-// TODO: Add flattening tests
+// TODO: Add augmenting tests
 
 // Generic response object
 const response: CheckerResponse = {
     containsError: false,
     error: { message: "" },
-    expectedType: "unknown",
+    expectedType: "statement",
     typeMismatch: false,
     sameState: true,
     sameCoefficient: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    receivedType: "statement",
+    allowPermutations: false
 };
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -38,6 +40,8 @@ const newResponse: CheckerResponse = {
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    receivedType: "unknown",
+    allowPermutations: false
 };
 
 const trueResponse: CheckerResponse = structuredClone(response);
@@ -239,20 +243,20 @@ describe("CheckNodesEqual Expression", () => {
             expect(checkNodesEqual(termMismatch, expression, structuredClone(response)).isEqual).toBeFalsy();
         }
     );
-    it("Returns an error if the AST is not flattened",
+    it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            // This is the same as expression just unflattened
-            const unflattenedExpression: Expression = {
+            // This is the same as expression just unaugmented
+            const unaugmentedExpression: Expression = {
                 type: "expr",
                 term: structuredClone(term),
                 rest: structuredClone(particleTerm)
             }
 
             // Assert
-            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(unflattenedExpression, expression, structuredClone(response)).error).toEqual(
-                { message: "Received unflattened AST during checking process." }
+            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
+            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).error).toEqual(
+                { message: "Received unaugmenttened AST during checking process." }
             );
 
             expect(console.error).toHaveBeenCalled();
@@ -335,7 +339,7 @@ describe("Check", () => {
             // Assert
             expect(response.error).toBeDefined();
             expect(response.error?.message).toBe("Sphinx of black quartz, judge my vow");
-            expect(response.expectedType).toBe("unknown");
+            expect(response.expectedType).toBe("statement");
         }
     );
     it("Returns type mismatch when appropriate",

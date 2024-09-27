@@ -25,6 +25,8 @@ export interface Element extends ASTNode {
     type: 'element';
     value: ChemicalSymbol;
     coeff: number;
+    bracketed?: boolean;
+    compounded?: boolean;
 }
 export function isElement(node: ASTNode): node is Element {
     return node.type === 'element';
@@ -32,6 +34,7 @@ export function isElement(node: ASTNode): node is Element {
 
 export interface Bracket extends ASTNode {
     type: 'bracket';
+    bracket: 'round' | 'square';
     compound: Compound;
     coeff: number;
 }
@@ -42,6 +45,7 @@ export function isBracket(node: ASTNode): node is Bracket {
 export interface Compound extends ASTNode {
     type: 'compound';
     head: Element | Bracket;
+    bracketed?: boolean;
     tail?: Element | Bracket | Compound;
     elements?: (Element | Bracket)[];
 }
@@ -105,27 +109,46 @@ export interface ChemAST {
     result: Result;
 }
 
-function flattenNode<T extends ASTNode>(node: T): T {
+function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
     switch (node.type) {
         case "compound": {
             if (isCompound(node)) {
-                // Recursively flatten
+                // Recursively augment (preprocess the tree)
                 let elements: (Element | Bracket)[] = [];
                 if (node.tail) {
-                    const flatTail: Element | Bracket | Compound = flattenNode(node.tail);
+                    const augmentedTail: Element | Bracket | Compound = augmentNode(node.tail);
 
-                    if (isCompound(flatTail)) {
-                        elements = flatTail.elements ?? [];
+                    if (isCompound(augmentedTail)) {
+                        elements = augmentedTail.elements ?? [];
                     } else {
-                        elements = [flatTail]
+                        elements = [augmentedTail]
                     }
                 }
 
-                let flatHead: Element | Bracket = flattenNode(node.head);
+                let augmentedHead: Element | Bracket = augmentNode(node.head);
 
-                // Append the current flattened head
-                elements.push(flatHead)
+                // Append the current augmented head
+                elements.push(augmentedHead)
+
+                for (let element of elements) {
+                    if (isElement(element)) {
+                        element.compounded = true;
+                    } 
+
+                    if (node.bracketed)  {
+                        if (isCompound(element) || isElement(element)) {
+                            element.bracketed = true;
+                        }
+                        else {
+                            const errorNode = {
+                                type: "error",
+                                value: "Received nested brackets during checking process.", 
+                            };
+                            return errorNode as unknown as T;
+                        }
+                    }
+                }
 
                 // Update and return the node
                 node.elements = elements;
@@ -137,21 +160,21 @@ function flattenNode<T extends ASTNode>(node: T): T {
             if (isIon(node)) {
                 let molecules: [Molecule, number][] = [];
 
-                // Recursively flatten
+                // Recursively augmented
                 if (node.chain) {
-                    const flatChain = flattenNode(node.chain);
+                    const augmentedChain = augmentNode(node.chain);
 
-                    if (isIon(flatChain)) {
-                        molecules = flatChain.molecules ?? [];
+                    if (isIon(augmentedChain)) {
+                        molecules = augmentedChain.molecules ?? [];
                     } else {
-                        molecules = [[flatChain, 0]]
+                        molecules = [[augmentedChain, 0]]
                     }
                 }
 
-                const flatMolecule: Molecule = flattenNode(node.molecule)
+                const augmentedMolecule: Molecule = augmentNode(node.molecule)
 
                 // Append the current values
-                molecules.push([flatMolecule, node.charge]);
+                molecules.push([augmentedMolecule, node.charge]);
 
                 // Update and return the node
                 node.molecules = molecules;
@@ -163,21 +186,21 @@ function flattenNode<T extends ASTNode>(node: T): T {
             if (isExpression(node)) {
                 let terms: Term[] = [];
 
-                // Recursively flatten
+                // Recursively augmented
                 if (node.rest) {
-                    const flatTerms: Expression | Term = flattenNode(node.rest);
+                    const augmentedTerms: Expression | Term = augmentNode(node.rest);
 
-                    if (isExpression(flatTerms)) {
-                        terms = flatTerms.terms ?? [];
+                    if (isExpression(augmentedTerms)) {
+                        terms = augmentedTerms.terms ?? [];
                     } else {
-                        terms = [flatTerms];
+                        terms = [augmentedTerms];
                     }
                 }
 
-                const flatTerm: Term = flattenNode(node.term);
+                const augmentedTerm: Term = augmentNode(node.term);
 
-                // Append the current flattened term
-                terms.push(flatTerm);
+                // Append the current augmented term
+                terms.push(augmentedTerm);
 
                 // Update and return the node
                 node.terms = terms;
@@ -186,23 +209,24 @@ function flattenNode<T extends ASTNode>(node: T): T {
             }
         }
 
-        // Nodes that do not need flattening but have subtrees
+        // Nodes that do not need  to be augmented but have subtrees
         case "bracket": {
             if(isBracket(node)) {
-                node.compound = flattenNode(node.compound);
+                node.compound.bracketed = true;
+                node.compound = augmentNode(node.compound);
                 return node;
             }
         }
         case "term": {
             if (isTerm(node)) {
-                node.value = flattenNode(node.value);
+                node.value = augmentNode(node.value);
                 return node;
             }
         }
         case "statement": {
             if (isStatement(node)) {
-                node.left = flattenNode(node.left);
-                node.right = flattenNode(node.right);
+                node.left = augmentNode(node.left);
+                node.right = augmentNode(node.right);
                 return node;
             }
         }
@@ -214,9 +238,9 @@ function flattenNode<T extends ASTNode>(node: T): T {
     }
 }
 
-export function flatten(ast: ChemAST): ChemAST {
-    const flatResult: Result = flattenNode(ast.result);
-    return { result: flatResult };
+export function augment(ast: ChemAST): ChemAST {
+    const augmentedResult: Result = augmentNode(ast.result);
+    return { result: augmentedResult };
 }
 
 function checkCoefficient(coeff1: Coefficient, coeff2: Coefficient): boolean {
@@ -264,16 +288,27 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        response.isEqual = response.isEqual &&
-            test.value === target.value &&
-            test.coeff === target.coeff;
-        response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+        if (!response.allowPermutations || !test.compounded) {
+            response.isEqual = response.isEqual &&
+                test.value === target.value &&
+                test.coeff === target.coeff;
+            response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+        }
 
-        if (response.atomCount) {
-            response.atomCount[test.value] = (response.atomCount[test.value] ?? 0) + test.coeff;
+        if (test.bracketed) {
+            if (response.bracketAtomCount) {
+                response.bracketAtomCount[test.value] = (response.bracketAtomCount[test.value] ?? 0) + test.coeff;
+            } else {
+                response.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                response.bracketAtomCount[test.value] = test.coeff;
+            }
         } else {
-            response.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
-            response.atomCount[test.value] = test.coeff;
+            if (response.termAtomCount) {
+                response.termAtomCount[test.value] = (response.termAtomCount[test.value] ?? 0) + test.coeff;
+            } else {
+                response.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                response.termAtomCount[test.value] = test.coeff;
+            }
         }
         return response;
     }
@@ -281,36 +316,51 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
         newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
-        newResponse.isEqual = newResponse.isEqual && test.coeff === target.coeff;
+        newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && test.bracket === target.bracket;
 
-        if (newResponse.atomCount) {
-            for (const [key, value] of Object.entries(newResponse.atomCount)) {
-                newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+        if (newResponse.bracketAtomCount) {
+            for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
+                if (newResponse.termAtomCount) {
+                    newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
+                }
+                else {
+                    newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                    newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+                }
             };
+            newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
         return newResponse;
     }
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
-            // TODO: allow different expansions
 
-            if (test.elements.length !== target.elements.length) {
-                // fail early if molecule lengths not the same
-                response.isEqual = false;
-                return response;
-            }
-            if (!typesMatch(test.elements, target.elements)) {
-                // fail early if the number of brackets and elements don't match
-                response.isEqual = false;
-                return response;
-            }
+            if (!response.allowPermutations) {
+                if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements) || !isEqual(test, target)) {
+                    // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
+                    response.sameElements = false;
+                    response.isEqual = false;             
+                }
+            } 
 
+            if (response.allowPermutations && !response.checkingPermutations) {
+                const permutationResponse = structuredClone(response);
+                permutationResponse.checkingPermutations = true;
+                const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
+                const targetResponse = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
+
+                response.isEqual = response.isEqual && isEqual(testResponse.atomCount, targetResponse.atomCount) 
+                                && isEqual(testResponse.termAtomCount, targetResponse.termAtomCount);
+                return response
+            } 
+            
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -328,12 +378,13 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 newResponse.chargeCount = (newResponse.chargeCount ?? 0) + test[1];
                 return newResponse;
             }
+
             return listComparison(test.molecules, target.molecules, response, comparator);
 
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -357,6 +408,19 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.isEqual = newResponse.isEqual && test.hydrate === target.hydrate;
         } // else the 'isEqual' will already be false from the checkNodesEqual above
 
+        if (newResponse.termAtomCount) {
+            for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
+                if (newResponse.atomCount) {
+                    newResponse.atomCount[key as ChemicalSymbol] = (newResponse.atomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff.numerator;
+                }
+                else {
+                    newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                    newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff.numerator;
+                }  
+            };
+            newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+        }
+
         return newResponse;
     }
     else if (isExpression(test) && isExpression(target)) {
@@ -370,9 +434,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
         } else {
-            console.error("[server] Encountered unflattened AST. Returning error");
+            console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unflattened AST during checking process." };
+            response.error = { message: "Received unaugmented AST during checking process." };
             return response;
         }
     }
@@ -381,7 +445,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         const leftBalanceCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
-        leftResponse.atomCount = {} as Record<ChemicalSymbol, number>;
+        leftResponse.atomCount = undefined;
         leftResponse.chargeCount = 0;
 
         const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
@@ -391,6 +455,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
 
+        if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
+            finalResponse.isBalanced = true;
+        }
+
         return finalResponse;
     } else {
         // There was a type mismatch
@@ -399,7 +467,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: ChemAST, target: ChemAST): CheckerResponse {
+export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolean): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
@@ -409,11 +477,14 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         sameState: true,
         sameCoefficient: true,
         sameArrow: true,
+        sameBrackets: true,
+        sameElements: true,
         isBalanced: true,
         isEqual: true,
         isNuclear: false,
         balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
-        chargeCount: 0
+        chargeCount: 0,
+        allowPermutations: allowPermutations ?? false
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
@@ -434,13 +505,16 @@ export function check(test: ChemAST, target: ChemAST): CheckerResponse {
         return response;
     }
 
+
     const newResponse = checkNodesEqual(test.result, target.result, response);
     delete newResponse.chargeCount;
+    delete newResponse.termAtomCount;
+    delete newResponse.bracketAtomCount;
     delete newResponse.atomCount;
     return newResponse;
 }
 
 export const exportedForTesting = {
-    flattenNode,
+    augmentNode,
     checkNodesEqual
 }
