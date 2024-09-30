@@ -30,8 +30,9 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
         // The API sends attachments as a string hashmap, so we need to convert them to boolean
         allowPermutations: req.body.allowPermutations === "true",
         allowScalingCoefficients: req.body.allowScalingCoefficients === "true",
-        allowStateSymbols: req.body.allowStateSymbols === "true",
+        noStateSymbols: req.body.noStateSymbols === "true",
     }
+    console.log("options", options);
     const result: CheckerResponse = check(test, target, options);
 
     res.status(201).send(result);

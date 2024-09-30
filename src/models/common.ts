@@ -13,7 +13,7 @@ export interface Coefficient {
 export interface ChemistryOptions {
     allowPermutations: boolean;
     allowScalingCoefficients: boolean;
-    allowStateSymbols: boolean;
+    noStateSymbols: boolean;
 }
 
 export interface CheckerResponse {
@@ -36,6 +36,7 @@ export interface CheckerResponse {
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
+    coefficientScalingValue?: Coefficient;
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;

@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, chemicalSymbol, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, chemicalSymbol, ChemistryOptions, listComparison } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
@@ -259,7 +259,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: boolean): CheckerResponse {
+export function check(test: NuclearAST, target: NuclearAST, options: ChemistryOptions): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
@@ -272,7 +272,7 @@ export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: 
         isBalanced: true,
         isEqual: true,
         isNuclear: true,
-        allowPermutations: allowPermutations ?? false,
+        options
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
