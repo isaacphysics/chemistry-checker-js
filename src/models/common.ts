@@ -10,6 +10,12 @@ export interface Coefficient {
     denominator: number;
 }
 
+export interface ChemistryOptions {
+    allowPermutations: boolean;
+    allowScalingCoefficients: boolean;
+    allowStateSymbols: boolean;
+}
+
 export interface CheckerResponse {
     containsError: boolean;
     error: { message: string; };
@@ -22,7 +28,7 @@ export interface CheckerResponse {
     sameState: boolean;
     sameCoefficient: boolean;
     sameElements: boolean;
-    allowPermutations: boolean;
+    options: ChemistryOptions;
     // properties dependent on type
     sameArrow?: boolean;
     sameBrackets?: boolean;

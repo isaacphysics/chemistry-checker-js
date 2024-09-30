@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, Coefficient, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, ChemistryOptions, Coefficient, listComparison } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -288,7 +288,7 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        if (!response.allowPermutations || !test.compounded) {
+        if (!response.options.allowPermutations || !test.compounded) {
             response.isEqual = response.isEqual &&
                 test.value === target.value &&
                 test.coeff === target.coeff;
@@ -337,7 +337,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
 
-            if (!response.allowPermutations) {
+            if (!response.options.allowPermutations) {
                 if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements) || !isEqual(test, target)) {
                     // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
                     response.sameElements = false;
@@ -345,7 +345,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 }
             } 
 
-            if (response.allowPermutations && !response.checkingPermutations) {
+            if (response.options.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
                 const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
@@ -443,7 +443,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isStatement(test) && isStatement(target)) {
         const leftResponse = checkNodesEqual(test.left, target.left, response);
 
-        const leftBalanceCount = structuredClone(leftResponse.atomCount);
+        const leftAtomCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
         leftResponse.atomCount = undefined;
         leftResponse.chargeCount = 0;
@@ -452,7 +452,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
         finalResponse.sameArrow = test.arrow === target.arrow;
-        finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
+        finalResponse.isBalanced = isEqual(leftAtomCount, finalResponse.atomCount)
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
 
         if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
@@ -467,8 +467,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolean): CheckerResponse {
-    const response = {
+export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions): CheckerResponse {
+    const response: CheckerResponse = {
         containsError: false,
         error: { message: "" },
         expectedType: target.result.type,
@@ -482,9 +482,8 @@ export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolea
         isBalanced: true,
         isEqual: true,
         isNuclear: false,
-        balanceCount: {} as Record<ChemicalSymbol, number | undefined>,
         chargeCount: 0,
-        allowPermutations: allowPermutations ?? false
+        options: options,
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
