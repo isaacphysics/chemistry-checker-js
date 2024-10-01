@@ -446,8 +446,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
             if (test.terms.length !== target.terms.length) {
-                // TODO: add a new property stating the number of terms was wrong
-                // fail early if term lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }

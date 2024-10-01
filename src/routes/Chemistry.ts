@@ -32,7 +32,6 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
         allowScalingCoefficients: req.body.allowScalingCoefficients === "true",
         noStateSymbols: req.body.noStateSymbols === "true",
     }
-    console.log("options", options);
     const result: CheckerResponse = check(test, target, options);
 
     res.status(201).send(result);
