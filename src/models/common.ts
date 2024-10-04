@@ -11,7 +11,6 @@ export interface Fraction {
 export interface ChemistryOptions {
     allowPermutations: boolean;
     allowScalingCoefficients: boolean;
-    noStateSymbols: boolean;
 }
 
 export interface CheckerResponse {
@@ -26,7 +25,6 @@ export interface CheckerResponse {
     sameState: boolean;
     sameCoefficient: boolean;
     sameElements: boolean;
-    options: ChemistryOptions;
     // properties dependent on type
     sameArrow?: boolean;
     sameBrackets?: boolean;
@@ -42,6 +40,7 @@ export interface CheckerResponse {
     atomCount?: Record<ChemicalSymbol, Fraction | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
+    options?: ChemistryOptions;
 }
 
 export function listComparison<T>(

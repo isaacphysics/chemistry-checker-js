@@ -295,7 +295,7 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        if (!response.options.allowPermutations || !test.compounded) {
+        if (!response.options?.allowPermutations || !test.compounded) {
             response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
             response.sameElements = response.sameElements && test.value === target.value;
             response.isEqual = response.isEqual && response.sameElements && response.sameCoefficient
@@ -343,7 +343,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
 
-            if (!response.options.allowPermutations) {
+            if (!response.options?.allowPermutations) {
                 if (!isEqual(test, target)) {
                     if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements)) {
                         // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
@@ -356,7 +356,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 }
             } 
 
-            if (response.options.allowPermutations && !response.checkingPermutations) {
+            if (response.options?.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
                 const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
@@ -406,7 +406,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
         const coefficientScalingValue: Fraction = checkCoefficient(test.coeff, target.coeff);
-        if (response.options.allowScalingCoefficients) {
+        if (response.options?.allowScalingCoefficients) {
             // If first term: set the scaling value, and coefficients are equal.
             if (isEqual(newResponse.coefficientScalingValue, STARTING_COEFFICIENT)) {
                 newResponse.coefficientScalingValue = coefficientScalingValue; 
@@ -424,7 +424,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         if (!test.isElectron && !target.isElectron) {
             newResponse.sameState = newResponse.sameState && test.state === target.state;
-            newResponse.sameState = newResponse.sameState && !(newResponse.options.noStateSymbols && test.state !== "");
             newResponse.isEqual = newResponse.isEqual && test.state === target.state;
         } // else the 'isEqual' will already be false from the checkNodesEqual above
 

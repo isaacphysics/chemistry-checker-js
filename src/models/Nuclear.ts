@@ -259,7 +259,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST, options: ChemistryOptions): CheckerResponse {
+export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
     const response = {
         containsError: false,
         error: { message: "" },
@@ -272,7 +272,6 @@ export function check(test: NuclearAST, target: NuclearAST, options: ChemistryOp
         isBalanced: true,
         isEqual: true,
         isNuclear: true,
-        options
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
