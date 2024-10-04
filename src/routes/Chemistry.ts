@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { ValidationChain, body, validationResult } from "express-validator";
 import { parseChemistryExpression } from "inequality-grammar";
 import { check, augment } from "../models/Chemistry";
-import { CheckerResponse } from "../models/common";
+import { CheckerResponse, ChemistryOptions } from "../models/common";
 
 const router = Router();
 
@@ -26,8 +26,12 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const target: ChemAST = augment(parseChemistryExpression(req.body.target)[0]);
     const test: ChemAST = augment(parseChemistryExpression(req.body.test)[0]);
-    const allowPermutations: boolean = req.body.allowPermutations === "true";
-    const result: CheckerResponse = check(test, target, allowPermutations);
+    const options: ChemistryOptions = {
+        // The API sends attachments as a string hashmap, so we need to convert them to boolean
+        allowPermutations: req.body.allowPermutations === "true",
+        allowScalingCoefficients: req.body.allowScalingCoefficients === "true",
+    }
+    const result: CheckerResponse = check(test, target, options);
 
     res.status(201).send(result);
 
