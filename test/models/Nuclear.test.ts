@@ -1,6 +1,5 @@
-import { iteratee } from "lodash";
 import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting } from "../../src/models/Nuclear";
-import { ChemicalSymbol, CheckerResponse, listComparison } from "../../src/models/common";
+import { CheckerResponse } from "../../src/models/common";
 const { checkNodesEqual } = exportedForTesting;
 
 const original = console.error;
@@ -20,29 +19,29 @@ const response: CheckerResponse = {
     containsError: false,
     error: { message: "" },
     expectedType: "statement",
+    receivedType: "statement",
     typeMismatch: false,
     sameState: true,
     sameCoefficient: true,
+    sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    receivedType: "statement",
-    allowPermutations: false
-};
+}
 // Alternative response object
 const newResponse: CheckerResponse = {
     containsError: false,
     error: { message: "" },
-    expectedType: "unknown",
+    expectedType: "statement",
+    receivedType: "statement",
     typeMismatch: false,
-    sameState: false,
-    sameCoefficient: false,
+    sameState: true,
+    sameCoefficient: true,
+    sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
-    receivedType: "unknown",
-    allowPermutations: false
-};
+}
 
 const trueResponse: CheckerResponse = structuredClone(response);
 trueResponse.balancedAtom = true;

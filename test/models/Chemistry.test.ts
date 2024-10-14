@@ -1,5 +1,5 @@
-import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment } from "../../src/models/Chemistry";
-import { ChemicalSymbol, CheckerResponse, listComparison } from "../../src/models/common";
+import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT } from "../../src/models/Chemistry";
+import { CheckerResponse, listComparison, ChemistryOptions } from "../../src/models/common";
 const { checkNodesEqual } = exportedForTesting;
 import { parseChemistryExpression } from "inequality-grammar";
 
@@ -14,39 +14,49 @@ afterEach(() => {
 })
 
 // TODO: Add augmenting tests
+const options: ChemistryOptions = {
+    allowPermutations: false,
+    allowScalingCoefficients: false
+}
 
 // Generic response object
 const response: CheckerResponse = {
     containsError: false,
     error: { message: "" },
     expectedType: "statement",
+    receivedType: "statement",
     typeMismatch: false,
     sameState: true,
     sameCoefficient: true,
+    sameArrow: true,
+    sameBrackets: true,
+    sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: false,
-    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0,
-    receivedType: "statement",
-    allowPermutations: false
-};
+    options: options,
+    coefficientScalingValue: STARTING_COEFFICIENT,
+}
 // Alternative response object
 const newResponse: CheckerResponse = {
     containsError: false,
     error: { message: "" },
     expectedType: "statement",
+    receivedType: "statement",
     typeMismatch: false,
-    sameState: false,
-    sameCoefficient: false,
+    sameState: true,
+    sameCoefficient: true,
+    sameArrow: true,
+    sameBrackets: true,
+    sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: false,
-    atomCount: {} as Record<ChemicalSymbol, number | undefined>,
     chargeCount: 0,
-    receivedType: "statement",
-    allowPermutations: false
-};
+    options: options,
+    coefficientScalingValue: STARTING_COEFFICIENT,
+}
 
 const trueResponse: CheckerResponse = structuredClone(newResponse);
 const falseResponse: CheckerResponse = structuredClone(newResponse);
@@ -62,7 +72,8 @@ const minimalCompound: Compound = {
 const bracket: Bracket = {
     type: "bracket",
     compound: structuredClone(minimalCompound),
-    coeff: 1
+    coeff: 1,
+    bracket: "round"
 };
 const compound: Compound = {
     type: "compound",
@@ -641,7 +652,7 @@ describe("Check", () => {
                 result: error
             }
 
-            const response: CheckerResponse = check(errorAST, ast);
+            const response: CheckerResponse = check(errorAST, ast, options);
             // Assert
             expect(response.error).toBeDefined();
             expect(response.error?.message).toBe("Sphinx of black quartz, judge my vow");
@@ -655,7 +666,7 @@ describe("Check", () => {
                 result: structuredClone(expression)
             }
 
-            const response: CheckerResponse = check(ast, expressionAST);
+            const response: CheckerResponse = check(ast, expressionAST, options);
             // Assert
             expect(response.typeMismatch).toBeTruthy();
             expect(response.expectedType).toBe("expr");
@@ -667,8 +678,8 @@ describe("Check", () => {
         const unchangedAST: ChemAST = augment(parseChemistryExpression("C10H22")[0]);
         const permutedAST: ChemAST = augment(parseChemistryExpression("CH3(CH2)8CH3")[0]);
 
-        const permutedResponse: CheckerResponse = check(unchangedAST, permutedAST, true);
-        const unpermutedResponse: CheckerResponse = check(unchangedAST, permutedAST, false);
+        const permutedResponse: CheckerResponse = check(unchangedAST, permutedAST, { ...options, allowPermutations: true });
+        const unpermutedResponse: CheckerResponse = check(unchangedAST, permutedAST, options);
         // Assert
         expect(permutedResponse.isEqual).toBeTruthy();
         expect(unpermutedResponse.isEqual).toBeFalsy();

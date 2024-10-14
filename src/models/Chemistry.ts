@@ -109,9 +109,9 @@ export interface ChemAST {
     result: Result;
 }
 
-const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
-const ERROR_COEFFICIENT: Fraction = { numerator: -1, denominator: -1 };
-const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
+export const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
+export const ERROR_COEFFICIENT: Fraction = { numerator: -1, denominator: -1 };
+export const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
 function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
