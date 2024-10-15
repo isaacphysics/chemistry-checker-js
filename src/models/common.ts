@@ -93,7 +93,9 @@ export function listComparison<T>(
             returnResponse.bracketAtomCount = aggregatesResponse.bracketAtomCount;
             returnResponse.termAtomCount = aggregatesResponse.termAtomCount;
             returnResponse.atomCount = aggregatesResponse.atomCount;
-            returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
+            if (aggregatesResponse.nucleonCount) {
+                returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
+            }
 
             return returnResponse;
         }

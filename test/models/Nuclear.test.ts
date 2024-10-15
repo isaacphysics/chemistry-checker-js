@@ -255,7 +255,7 @@ describe("CheckNodesEqual Expression", () => {
             // Assert
             expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
             expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).error).toEqual(
-                { message: "Received unaugmenttened AST during checking process." }
+                { message: "Received unaugmented AST during checking process." }
             );
 
             expect(console.error).toHaveBeenCalled();

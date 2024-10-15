@@ -377,8 +377,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isIon(test) && isIon(target)) {
         if (test.molecules && target.molecules) {
-            if (test.molecules.length !== target.molecules.length) {
+            if (!response.options?.allowPermutations && test.molecules.length !== target.molecules.length) {
                 // fail early if molecule lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
@@ -531,10 +532,10 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
 
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
-    delete newResponse.chargeCount;
+    /* delete newResponse.chargeCount;
     delete newResponse.termAtomCount;
     delete newResponse.bracketAtomCount;
-    delete newResponse.atomCount;
+    delete newResponse.atomCount; */
     return newResponse;
 }
 

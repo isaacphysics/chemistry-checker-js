@@ -1,6 +1,6 @@
 import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT } from "../../src/models/Chemistry";
-import { CheckerResponse, listComparison, ChemistryOptions } from "../../src/models/common";
-const { checkNodesEqual } = exportedForTesting;
+import { CheckerResponse, listComparison, ChemistryOptions, Fraction, ChemicalSymbol } from "../../src/models/common";
+const { augmentNode, checkNodesEqual } = exportedForTesting;
 import { parseChemistryExpression } from "inequality-grammar";
 
 const original = console.error;
@@ -37,6 +37,9 @@ const response: CheckerResponse = {
     chargeCount: 0,
     options: options,
     coefficientScalingValue: STARTING_COEFFICIENT,
+    atomCount: undefined,
+    bracketAtomCount: undefined,
+    termAtomCount: undefined,
 }
 // Alternative response object
 const newResponse: CheckerResponse = {
@@ -56,6 +59,9 @@ const newResponse: CheckerResponse = {
     chargeCount: 0,
     options: options,
     coefficientScalingValue: STARTING_COEFFICIENT,
+    atomCount: undefined,
+    bracketAtomCount: undefined,
+    termAtomCount: undefined,
 }
 
 const trueResponse: CheckerResponse = structuredClone(newResponse);
@@ -78,20 +84,15 @@ const bracket: Bracket = {
 const compound: Compound = {
     type: "compound",
     head: structuredClone(element),
-    elements: [
-        structuredClone(element),
-        structuredClone(bracket)
-    ]
+    tail: structuredClone(bracket)
 };
 const ion: Ion = {
     type: "ion",
     molecule: structuredClone(compound),
     charge: -1,
-    molecules: [
-        [structuredClone(compound), -1],
-        [{ type: "element", value: "Na", coeff: 1 }, 1]
-    ]
+    chain: { type: "ion", molecule: {type: "element", value: "Na", coeff: 1 }, charge: 1 }
 };
+
 const term: Term = {
     type: "term",
     value: structuredClone(minimalCompound),
@@ -112,7 +113,7 @@ const hydrate: Term = {
     isHydrate: true
 };
 const hydrate2: Term = structuredClone(hydrate);
-hydrate2.coeff = { numerator: 2, denominator: 1};
+hydrate2.coeff = { numerator: 6, denominator: 4 };
 hydrate2.state = "(l)"
 hydrate2.hydrate = 3;
 
@@ -200,7 +201,7 @@ describe("checkNodesEqual Elements", () => {
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
-            expect(testResponse.atomCount?.C).toBe(1);
+            expect(testResponse.termAtomCount?.C).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when elements don't match",
@@ -217,11 +218,11 @@ describe("checkNodesEqual Elements", () => {
             // Assert
             expect(elementIncorrect.isEqual).toBeFalsy();
             expect(elementIncorrect.sameCoefficient).toBeTruthy();
-            expect(elementIncorrect.atomCount?.O).toBe(1);
+            expect(elementIncorrect.termAtomCount?.O).toBe(1);
 
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
-            expect(coeffIncorrect.atomCount?.C).toBe(2);
+            expect(coeffIncorrect.termAtomCount?.C).toBe(2);
         }
     );
 });
@@ -232,12 +233,12 @@ describe("checkNodesEqual Brackets", () => {
             // Act
             const bracketCopy: Bracket = structuredClone(bracket);
 
-            const testResponse = checkNodesEqual(bracketCopy, bracket, structuredClone(response));
+            const testResponse = checkNodesEqual(augmentNode(bracketCopy), augmentNode(bracket), structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameCoefficient).toBeTruthy();
-            expect(testResponse.atomCount?.O).toBe(1);
+            expect(testResponse.termAtomCount?.O).toBe(1);
         }
     );
     it("Returns falsy CheckerResponse when brackets don't match",
@@ -246,12 +247,12 @@ describe("checkNodesEqual Brackets", () => {
             const coefficientMismatch: Bracket = structuredClone(bracket);
             coefficientMismatch.coeff = 2;
 
-            const coeffIncorrect = checkNodesEqual(coefficientMismatch, bracket, structuredClone(response));
+            const coeffIncorrect = checkNodesEqual(augmentNode(coefficientMismatch), augmentNode(bracket), structuredClone(response));
 
             // Assert
             expect(coeffIncorrect.isEqual).toBeFalsy();
             expect(coeffIncorrect.sameCoefficient).toBeFalsy();
-            expect(coeffIncorrect.atomCount?.O).toBe(2);
+            expect(coeffIncorrect.termAtomCount?.O).toBe(2);
         }
     );
 });
@@ -260,27 +261,26 @@ describe("checkNodesEqual Compounds", () => {
     it("Returns truthy CheckerResponse when compounds match",
         () => {
             // Act
-            const permutedCompound: Compound = structuredClone(compound);
-            permutedCompound.elements?.reverse;
+            const compoundCopy: Compound = structuredClone(compound);
 
-            const testResponse = checkNodesEqual(permutedCompound, compound, structuredClone(response));
+            const testResponse = checkNodesEqual(augmentNode(compoundCopy), augmentNode(structuredClone(compound)), structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.C).toBe(1)
-            expect(testResponse.atomCount?.O).toBe(1)
+            expect(testResponse.termAtomCount?.C).toBe(1)
+            expect(testResponse.termAtomCount?.O).toBe(1)
         }
     );
     it("Returns falsy CheckerResponse when compounds don't match",
         () => {
             // Act
-            const typeMismatch: Compound = structuredClone(compound);
+            const typeMismatch: Compound = augmentNode(structuredClone(compound));
             typeMismatch.elements = [structuredClone(element), structuredClone(element)]
-            const lengthMismatch: Compound = structuredClone(compound);
+            const lengthMismatch: Compound = augmentNode(structuredClone(compound));
             lengthMismatch.elements?.push(structuredClone(element));
 
-            const typesIncorrect = checkNodesEqual(typeMismatch, compound, structuredClone(response));
-            const lengthIncorrect = checkNodesEqual(lengthMismatch, compound, structuredClone(response));
+            const typesIncorrect = checkNodesEqual(typeMismatch, augmentNode(structuredClone(compound)), structuredClone(response));
+            const lengthIncorrect = checkNodesEqual(lengthMismatch, augmentNode(structuredClone(compound)), structuredClone(response));
 
             // Assert
             expect(typesIncorrect.isEqual).toBeFalsy();
@@ -292,25 +292,25 @@ describe("checkNodesEqual Compounds", () => {
             // Arrange
             // If the lengths or types are different the wrong thing will fail
             // So create a single bracket compound to test bracket mismatches
-            const minimalBracketCompound: Compound = structuredClone(minimalCompound)
-            minimalBracketCompound.elements = [structuredClone(bracket)]
+            const minimalBracketCompound: Compound = augmentNode(structuredClone(minimalCompound))
+            minimalBracketCompound.elements = [augmentNode(structuredClone(bracket))]
 
-            const bracketCoeffMismatch: Bracket = structuredClone(bracket);
+            const bracketCoeffMismatch: Bracket = augmentNode(structuredClone(bracket));
             bracketCoeffMismatch.coeff = 2;
-            const elementCoeffMismatch: Element = structuredClone(element);
+            const elementCoeffMismatch: Element = augmentNode(structuredClone(element));
             elementCoeffMismatch.coeff = 2;
 
-            const bracketMismatch: Compound = structuredClone(compound);
+            const bracketMismatch: Compound = augmentNode(structuredClone(compound));
             bracketMismatch.elements = [bracketCoeffMismatch];
-            const elementMismatch: Compound = structuredClone(compound);
+            const elementMismatch: Compound = augmentNode(structuredClone(compound));
             elementMismatch.elements = [elementCoeffMismatch];
 
-            const bracketResponse: CheckerResponse = checkNodesEqual(bracketCoeffMismatch, bracket, structuredClone(response));
-            const elementResponse: CheckerResponse = checkNodesEqual(elementCoeffMismatch, element, structuredClone(response));
+            const bracketResponse: CheckerResponse = checkNodesEqual(bracketCoeffMismatch, augmentNode(structuredClone(bracket)), structuredClone(response));
+            const elementResponse: CheckerResponse = checkNodesEqual(elementCoeffMismatch, augmentNode(structuredClone(element)), structuredClone(response));
 
             // Assert
-            expect(checkNodesEqual(bracketMismatch, minimalBracketCompound, structuredClone(response))).toEqual(bracketResponse);
-            expect(checkNodesEqual(elementMismatch, minimalCompound, structuredClone(response))).toEqual(elementResponse);
+            expect(checkNodesEqual(bracketMismatch, minimalBracketCompound, structuredClone(response))).toEqual({...bracketResponse, sameElements: true});
+            expect(checkNodesEqual(elementMismatch, minimalCompound, structuredClone(response))).toEqual({...elementResponse, sameElements: false});
         }
     );
     it("Returns an error if the AST is not augmented",
@@ -338,36 +338,35 @@ describe("CheckNodesEqual Ions", () => {
     it("Returns truthy CheckerResponse when ions match",
         () => {
             // Act
-            const permutedIon: Ion = structuredClone(ion);
-            permutedIon.molecules?.reverse;
+            const ionClone: Ion = structuredClone(ion);
 
-            const testResponse = checkNodesEqual(permutedIon, ion, structuredClone(response));
+            const testResponse = checkNodesEqual(augmentNode(structuredClone(ion)), augmentNode(ionClone), structuredClone(response));
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toBe(1);
-            expect(testResponse.atomCount?.Na).toBe(1);
+            expect(testResponse.termAtomCount?.O).toBe(1);
+            expect(testResponse.termAtomCount?.Na).toBe(1);
             expect(testResponse.chargeCount).toBe(0);
         }
     );
     it("Returns falsy CheckerResponse when ions do not match",
         () => {
-            const moleculeMismatch: Ion = structuredClone(ion);
+            const moleculeMismatch: Ion = augmentNode(structuredClone(ion));
             if (moleculeMismatch.molecules) {
                 moleculeMismatch.molecules[0] = [{ type: "element", value: "Cl", coeff: 1 }, -1];
             }
 
-            const chargeMismatch: Ion = structuredClone(ion);
+            const chargeMismatch: Ion = augmentNode(structuredClone(ion));
             if (chargeMismatch.molecules) {
-                chargeMismatch.molecules[1] = [{ type: "element", value: "Na", coeff: 1 }, -1];
+                chargeMismatch.molecules[0] = [{ type: "element", value: "Na", coeff: 1 }, -1]
             }
 
-            const lengthMismatch: Ion = structuredClone(ion);
+            const lengthMismatch: Ion = augmentNode(structuredClone(ion));
             lengthMismatch.molecules?.push([structuredClone(element), 1]);
 
-            const moleculeIncorrect = checkNodesEqual(moleculeMismatch, ion, structuredClone(response));
-            const chargeIncorrect = checkNodesEqual(chargeMismatch, ion, structuredClone(response));
-            const lengthIncorrect = checkNodesEqual(lengthMismatch, ion, structuredClone(response));
+            const moleculeIncorrect = checkNodesEqual(moleculeMismatch, augmentNode(structuredClone(ion)), structuredClone(response));
+            const chargeIncorrect = checkNodesEqual(chargeMismatch, augmentNode(structuredClone(ion)), structuredClone(response));
+            const lengthIncorrect = checkNodesEqual(lengthMismatch, augmentNode(structuredClone(ion)), structuredClone(response));
 
             // Assert
             expect(moleculeIncorrect.isEqual).toBeFalsy();
@@ -407,26 +406,28 @@ describe("CheckNodesEqual Term", () => {
     // TODO: Separate into different tests
     it("Returns truthy CheckerResponse when terms match",
         () => {
+            const scaledResponse = { ...response, options: { ...options, allowScalingCoefficients: true } };
+
             // Scalar multiple coefficient
-            let perturbedTerm: Term = structuredClone(term);
+            let perturbedTerm: Term = augmentNode(structuredClone(term));
             perturbedTerm.coeff = { numerator: 6, denominator: 4 };
 
-            let testResponse = checkNodesEqual(perturbedTerm, term, structuredClone(response))
+            let testResponse = checkNodesEqual(perturbedTerm, augmentNode(structuredClone(term)), scaledResponse);
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameState).toBeTruthy();
-            expect(testResponse.atomCount?.O).toBe(1);
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 2});
 
             // Term with a state
-            perturbedTerm = structuredClone(term);
+            perturbedTerm = augmentNode(structuredClone(term));
             perturbedTerm.state = "(aq)";
-            let termCopy: Term = structuredClone(perturbedTerm);
+            let termCopy: Term = augmentNode(structuredClone(perturbedTerm));
 
             testResponse = checkNodesEqual(perturbedTerm, termCopy, structuredClone(response))
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameState).toBeTruthy();
 
             // Hydrate term
-            perturbedTerm = structuredClone(term);
+            perturbedTerm = augmentNode(structuredClone(term));
             termCopy.isHydrate = true;
             termCopy.hydrate = 7;
             termCopy = structuredClone(perturbedTerm);
@@ -434,7 +435,7 @@ describe("CheckNodesEqual Term", () => {
             expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
 
             // Electron
-            perturbedTerm = structuredClone(term);
+            perturbedTerm = augmentNode(structuredClone(term));
             perturbedTerm.isElectron = true
             perturbedTerm.value = { type: "electron" }
             termCopy = structuredClone(perturbedTerm);
@@ -444,23 +445,23 @@ describe("CheckNodesEqual Term", () => {
     it("Returns falsy CheckerResponse when terms don't match",
         () => {
             // Mismatched coefficients
-            let mismatchTerm: Term = structuredClone(term);
+            let mismatchTerm: Term = augmentNode(structuredClone(term));
             mismatchTerm.coeff = { numerator: 1, denominator: 5 };
 
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).sameCoefficient).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, augmentNode(structuredClone(term)), structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, augmentNode(structuredClone(term)), structuredClone(response)).sameCoefficient).toBeFalsy();
 
             // Mismatched state
-            let perturbedTerm: Term = structuredClone(term);
-            mismatchTerm = structuredClone(term)
+            let perturbedTerm: Term = augmentNode(structuredClone(term));
+            mismatchTerm = augmentNode(structuredClone(term));
             perturbedTerm.state = "(aq)";
             mismatchTerm.state = "(g)";
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).sameState).toBeFalsy();
 
             // Mismatched hydrate
-            perturbedTerm = structuredClone(term);
-            mismatchTerm = structuredClone(term);
+            perturbedTerm = augmentNode(structuredClone(term));
+            mismatchTerm = augmentNode(structuredClone(term));
             perturbedTerm.isHydrate = true;
             perturbedTerm.hydrate = 7;
             mismatchTerm.isHydrate = true;
@@ -468,11 +469,11 @@ describe("CheckNodesEqual Term", () => {
             expect(checkNodesEqual(perturbedTerm, mismatchTerm, structuredClone(response)).isEqual).toBeFalsy();
 
             // Mismatched type
-            mismatchTerm = structuredClone(term);
-            mismatchTerm.isElectron = true
-            mismatchTerm.value = { type: "electron" }
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).typeMismatch).toBeFalsy();
+            mismatchTerm = augmentNode(structuredClone(term));
+            mismatchTerm.isElectron = true;
+            mismatchTerm.value = { type: "electron" };
+            expect(checkNodesEqual(mismatchTerm, augmentNode(structuredClone(term)), structuredClone(response)).isEqual).toBeFalsy();
+            expect(checkNodesEqual(mismatchTerm, augmentNode(structuredClone(term)), structuredClone(response)).typeMismatch).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
@@ -481,12 +482,16 @@ describe("CheckNodesEqual Term", () => {
             const complexTerm: Term = structuredClone(term);
             complexTerm.value = structuredClone(compound);
 
-            const compoundResponse = checkNodesEqual(compound, minimalCompound, structuredClone(response));
-            const testResponse = checkNodesEqual(complexTerm, term, structuredClone(response));
+            const testResponse = checkNodesEqual(augmentNode(complexTerm), augmentNode(structuredClone(term)), structuredClone(response));
+            const compoundResponse = checkNodesEqual(augmentNode(structuredClone(compound)), augmentNode(minimalCompound), structuredClone(response));
+
+            const expectedResponse = structuredClone(compoundResponse);
+
+            expectedResponse.atomCount = {"C": {"numerator": 3, "denominator": 2}, "O": {"numerator": 3, "denominator": 2}} as Record<ChemicalSymbol, Fraction>;
+            expectedResponse.termAtomCount = {} as Record<ChemicalSymbol, number>;
 
             // Assert
-            expect(testResponse.atomCount).toEqual(compoundResponse.atomCount);
-            expect(testResponse.chargeCount).toEqual(compoundResponse.chargeCount);
+            expect(testResponse).toEqual(expectedResponse);
         }
     );
 });
@@ -501,7 +506,7 @@ describe("CheckNodesEqual Expression", () => {
             const testResponse: CheckerResponse = checkNodesEqual(permutedExpression, expression, structuredClone(response));
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toBe(2);
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 1});
         }
     );
     it("Returns falsy CheckerResponse when expressions do not match",
@@ -522,16 +527,17 @@ describe("CheckNodesEqual Expression", () => {
         () => {
             // Act
             const adjustedExpression: Expression = structuredClone(expression);
+            adjustedExpression.term = structuredClone(hydrate);
             adjustedExpression.terms = [structuredClone(hydrate)];
+
             const mismatchedHydrate: Expression = structuredClone(expression);
+            mismatchedHydrate.term = structuredClone(hydrate2);
             mismatchedHydrate.terms = [structuredClone(hydrate2)];
 
-            const hydrateResponse: CheckerResponse = checkNodesEqual(hydrate, hydrate2, structuredClone(response));
+            const hydrateResponse: CheckerResponse = checkNodesEqual(augmentNode(hydrate), augmentNode(hydrate2), structuredClone(response));
 
             // Assert
-            expect(
-                checkNodesEqual(mismatchedHydrate, adjustedExpression, structuredClone(response))
-            ).toEqual(hydrateResponse);
+            expect(checkNodesEqual(augmentNode(mismatchedHydrate), augmentNode(adjustedExpression), structuredClone(response))).toEqual(hydrateResponse);
         }
     );
     it("Returns an error if the AST is not augmented",
@@ -603,7 +609,7 @@ describe("CheckNodesEqual Statement", () => {
             unbalancedStatement.right = structuredClone(expression);
 
             // Assert
-            expect((checkNodesEqual(statement, statement, structuredClone(response))).isBalanced).toBeTruthy();
+            expect((checkNodesEqual(augmentNode(statement), augmentNode(statement), structuredClone(response))).isBalanced).toBeTruthy();
             expect((checkNodesEqual(unbalancedStatement, statement, structuredClone(response))).isBalanced).toBeFalsy();
         }
     );
