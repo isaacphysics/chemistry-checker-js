@@ -12,7 +12,6 @@ export interface Coefficient {
 
 export interface CheckerResponse {
     containsError: boolean;
-    error: { message: string; };
     expectedType: ReturnType;
     receivedType: ReturnType;
     isBalanced: boolean;
@@ -30,6 +29,7 @@ export interface CheckerResponse {
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
+    error?: string;
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;

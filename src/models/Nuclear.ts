@@ -231,7 +231,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unaugmented AST during checking process." };
+            response.error = "Received unaugmented AST during checking process.";
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
@@ -260,9 +260,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 }
 
 export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: boolean): CheckerResponse {
-    const response = {
+    const response: CheckerResponse = {
         containsError: false,
-        error: { message: "" },
         expectedType: target.result.type,
         receivedType: test.result.type,
         typeMismatch: false,
@@ -275,17 +274,23 @@ export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: 
         allowPermutations: allowPermutations ?? false,
     }
     // Return shortcut response
-    if (target.result.type === "error" || test.result.type === "error") {
+    if (test.result.type === "error") {
         const message =
             isParseError(target.result) ?
                 target.result.value :
                 (isParseError(test.result) ? test.result.value : "No error found");
 
         response.containsError = true;
-        response.error = { message: message };
+        response.error = message;
         response.isEqual = false;
         return response;
-   }
+    }
+    if (target.result.type === "error") {
+        // If the target (provided answer in Content) is a syntax error and the student's answer does not match it exactly,
+        // then we cannot check further and the student's answer is assumed incorrect
+        response.isEqual = false;
+        return response;
+    }
     if (test.result.type !== target.result.type) {
         response.typeMismatch = true;
         response.isEqual = false;
