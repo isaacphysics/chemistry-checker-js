@@ -289,10 +289,8 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
         if (!response.allowPermutations || !test.compounded) {
-            response.isEqual = response.isEqual &&
-                test.value === target.value &&
-                test.coeff === target.coeff;
-            response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
+            response.sameElements = response.sameElements && test.value === target.value && test.coeff === target.coeff;
+            response.isEqual = response.isEqual && response.sameElements;
         }
 
         if (test.bracketed) {
@@ -315,9 +313,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isBracket(test) && isBracket(target)) {
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
-        newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && test.bracket === target.bracket;
+        newResponse.sameElements = newResponse.sameElements && test.coeff === target.coeff;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
@@ -368,6 +366,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (test.molecules && target.molecules) {
             if (test.molecules.length !== target.molecules.length) {
                 // fail early if molecule lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
@@ -394,19 +393,13 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isTerm(test) && isTerm(target)) {
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
-        const coefficientsMatch: boolean = checkCoefficient(test.coeff, target.coeff);
-        newResponse.sameCoefficient = newResponse.sameCoefficient && coefficientsMatch;
-        newResponse.isEqual = newResponse.isEqual && coefficientsMatch;
+        newResponse.sameCoefficient = newResponse.sameCoefficient && checkCoefficient(test.coeff, target.coeff);
 
         if (!test.isElectron && !target.isElectron) {
             newResponse.sameState = newResponse.sameState && test.state === target.state;
-            newResponse.isEqual = newResponse.isEqual && test.state === target.state;
-        } // else the 'isEqual' will already be false from the checkNodesEqual above
+        } 
 
-        if (test.isHydrate && target.isHydrate) {
-            // TODO: add a new property stating the hydrate was wrong?
-            newResponse.isEqual = newResponse.isEqual && test.hydrate === target.hydrate;
-        } // else the 'isEqual' will already be false from the checkNodesEqual above
+        // TODO: add a new property stating the hydrate was wrong?
 
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
@@ -426,8 +419,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
             if (test.terms.length !== target.terms.length) {
-                // TODO: add a new property stating the number of terms was wrong
-                // fail early if term lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
@@ -511,6 +503,8 @@ export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolea
 
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameState && newResponse.sameCoefficient && (newResponse.sameBrackets == true);
+
     delete newResponse.chargeCount;
     delete newResponse.termAtomCount;
     delete newResponse.bracketAtomCount;
