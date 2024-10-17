@@ -3,8 +3,6 @@ export type ChemicalSymbol = typeof chemicalSymbol[number];
 
 export type ReturnType = 'term'|'expr'|'statement'|'error'|'unknown';
 
-type Aggregates = 'atomCount' | 'chargeCount' | 'nucleonCount';
-
 export interface Coefficient {
     numerator: number;
     denominator: number;
@@ -12,7 +10,6 @@ export interface Coefficient {
 
 export interface CheckerResponse {
     containsError: boolean;
-    error: { message: string; };
     expectedType: ReturnType;
     receivedType: ReturnType;
     isBalanced: boolean;
@@ -30,6 +27,7 @@ export interface CheckerResponse {
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
+    error?: string;
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
