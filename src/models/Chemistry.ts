@@ -454,8 +454,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return finalResponse;
     } else {
         // There was a type mismatch
+        response.sameElements = false;
         response.isEqual = false;
-        return response;
+        // We must still check the children of the node to get a complete atom acount
+        return checkNodesEqual(test, test, response);
     }
 }
 

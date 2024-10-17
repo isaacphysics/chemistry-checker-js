@@ -3,8 +3,6 @@ export type ChemicalSymbol = typeof chemicalSymbol[number];
 
 export type ReturnType = 'term'|'expr'|'statement'|'error'|'unknown';
 
-type Aggregates = 'atomCount' | 'chargeCount' | 'nucleonCount';
-
 export interface Coefficient {
     numerator: number;
     denominator: number;
