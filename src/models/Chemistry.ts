@@ -110,7 +110,6 @@ export interface ChemAST {
 }
 
 const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
-const ERROR_COEFFICIENT: Fraction = { numerator: -1, denominator: -1 };
 const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
 function augmentNode<T extends ASTNode>(node: T): T {
@@ -250,7 +249,7 @@ export function augment(ast: ChemAST): ChemAST {
 function checkCoefficient(coeff1: Fraction, coeff2: Fraction): Fraction {
     if (coeff1.denominator === 0 || coeff2.denominator === 0) {
         console.error("[server] divide by 0 encountered returning false!");
-        return ERROR_COEFFICIENT;
+        throw new Error("Division by zero is undefined!");
     }
 
     // a/b = c/d <=> ad = bc given b != 0 and d != 0
@@ -405,16 +404,36 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isTerm(test) && isTerm(target)) {
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
+        try {
         const coefficientScalingValue: Fraction = checkCoefficient(test.coeff, target.coeff);
+        }
+        catch (e) {
+            response.containsError = true;
+            response.error = (e as Error).message;
+            response.isEqual = false;
+            return response;
+        }
+        const coefficientScalingValue: Fraction = STARTING_COEFFICIENT
         if (response.options?.allowScalingCoefficients) {
-            // If first term: set the scaling value, and coefficients are equal.
-            if (isEqual(newResponse.coefficientScalingValue, STARTING_COEFFICIENT)) {
-                newResponse.coefficientScalingValue = coefficientScalingValue; 
+            try {
+                
+
+                // If first term: set the scaling value, and coefficients are equal.
+                if (isEqual(newResponse.coefficientScalingValue, STARTING_COEFFICIENT)) {
+                    newResponse.coefficientScalingValue = coefficientScalingValue; 
+                }
+                // If not first term: coefficients are equal only if multiplied by an equivalent scaling value.
+                else {
+                    const scalingValueRatio: Fraction = newResponse.coefficientScalingValue ? checkCoefficient(newResponse.coefficientScalingValue, coefficientScalingValue) : EQUAL_COEFFICIENT;
+                    const coefficientsMatch = isEqual(scalingValueRatio, EQUAL_COEFFICIENT)
+                    newResponse.sameCoefficient = newResponse.sameCoefficient && coefficientsMatch;
+                }
             }
-            // If not first term: coefficients are equal only if multiplied by an equivalent scaling value.
-            else {
-                const coefficientsMatch = newResponse.coefficientScalingValue ? isEqual(checkCoefficient(newResponse.coefficientScalingValue, coefficientScalingValue), EQUAL_COEFFICIENT) : true;
-                newResponse.sameCoefficient = newResponse.sameCoefficient && coefficientsMatch;
+            catch (e) {
+                response.containsError = true;
+                response.error = (e as Error).message;
+                response.isEqual = false;
+                return response;
             }
         } else {
             // If coefficients are not allowed to be scaled, they must be exactly equal.
