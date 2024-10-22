@@ -15,7 +15,6 @@ export interface ChemistryOptions {
 
 export interface CheckerResponse {
     containsError: boolean;
-    error: { message: string; };
     expectedType: ReturnType;
     receivedType: ReturnType;
     isBalanced: boolean;
@@ -33,6 +32,7 @@ export interface CheckerResponse {
     balancedAtom?: boolean;
     balancedMass?: boolean;
     coefficientScalingValue?: Fraction;
+    error?: string;
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;

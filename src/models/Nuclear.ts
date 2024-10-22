@@ -231,7 +231,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unaugmented AST during checking process." };
+            response.error = "Received unaugmented AST during checking process.";
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
@@ -260,9 +260,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 }
 
 export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    const response = {
+    const response: CheckerResponse = {
         containsError: false,
-        error: { message: "" },
         expectedType: target.result.type,
         receivedType: test.result.type,
         typeMismatch: false,
@@ -281,7 +280,7 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
                 (isParseError(test.result) ? test.result.value : "No error found");
 
         response.containsError = true;
-        response.error = { message: message };
+        response.error = message;
         response.isEqual = false;
         return response;
    }
