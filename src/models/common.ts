@@ -3,9 +3,14 @@ export type ChemicalSymbol = typeof chemicalSymbol[number];
 
 export type ReturnType = 'term'|'expr'|'statement'|'error'|'unknown';
 
-export interface Coefficient {
+export interface Fraction {
     numerator: number;
     denominator: number;
+}
+
+export interface ChemistryOptions {
+    allowPermutations: boolean;
+    allowScalingCoefficients: boolean;
 }
 
 export interface CheckerResponse {
@@ -19,7 +24,6 @@ export interface CheckerResponse {
     sameState: boolean;
     sameCoefficient: boolean;
     sameElements: boolean;
-    allowPermutations: boolean;
     // properties dependent on type
     sameArrow?: boolean;
     sameBrackets?: boolean;
@@ -27,14 +31,16 @@ export interface CheckerResponse {
     validAtomicNumber?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
+    coefficientScalingValue?: Fraction;
     error?: string;
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
     bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
-    atomCount?: Record<ChemicalSymbol, number | undefined>;
+    atomCount?: Record<ChemicalSymbol, Fraction | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
+    options?: ChemistryOptions;
 }
 
 export function listComparison<T>(
@@ -97,3 +103,18 @@ export function listComparison<T>(
     return possibleResponse
 }
 
+const SimplifyFrac = (frac: Fraction): Fraction => {
+    let gcd = function gcd(a: number, b:number): number{
+      return b ? gcd(b, a%b) : a;
+    };
+    const divisor = gcd(frac.numerator, frac.denominator);
+    return {numerator: frac.numerator / divisor, denominator: frac.denominator / divisor};
+}
+  
+export const AddFrac = (frac1: Fraction, frac2: Fraction): Fraction => {
+    return SimplifyFrac({numerator: frac1.numerator * frac2.denominator + frac2.numerator * frac1.denominator, denominator: frac1.denominator * frac2.denominator});
+}
+
+export const MultFrac = (frac1: Fraction, frac2: Fraction): Fraction => {
+    return SimplifyFrac({numerator: frac1.numerator * frac2.numerator, denominator: frac1.denominator * frac2.denominator});
+}

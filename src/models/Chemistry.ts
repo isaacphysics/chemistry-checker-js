@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, Coefficient, listComparison } from './common'
+import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, MultFrac } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -75,7 +75,7 @@ export function isElectron(node: ASTNode): node is Electron {
 export interface Term extends ASTNode {
     type: 'term';
     value: Ion | Compound | Electron;
-    coeff: Coefficient;
+    coeff: Fraction;
     state: State;
     hydrate: number;
     isElectron: boolean;
@@ -108,6 +108,9 @@ export function isStatement(node: ASTNode): node is Statement {
 export interface ChemAST {
     result: Result;
 }
+
+const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
+const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
 function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
@@ -243,14 +246,17 @@ export function augment(ast: ChemAST): ChemAST {
     return { result: augmentedResult };
 }
 
-function checkCoefficient(coeff1: Coefficient, coeff2: Coefficient): boolean {
+function checkCoefficient(coeff1: Fraction, coeff2: Fraction): Fraction {
     if (coeff1.denominator === 0 || coeff2.denominator === 0) {
         console.error("[server] divide by 0 encountered returning false!");
-        return false;
+        throw new Error("Division by zero is undefined!");
     }
+
     // a/b = c/d <=> ad = bc given b != 0 and d != 0
     // Comparing integers is far better than floats
-    return coeff1.numerator * coeff2.denominator === coeff2.numerator * coeff1.denominator;
+    const equalCoefficients = coeff1.numerator * coeff2.denominator === coeff2.numerator * coeff1.denominator; 
+    if (equalCoefficients) { return EQUAL_COEFFICIENT; }
+    else { return { numerator: coeff1.numerator * coeff2.denominator, denominator: coeff2.numerator * coeff1.denominator }; }
 }
 
 function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Bracket)[]): boolean {
@@ -288,7 +294,7 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
-        if (!response.allowPermutations || !test.compounded) {
+        if (!response.options?.allowPermutations || !test.compounded) {
             response.sameElements = response.sameElements && test.value === target.value && test.coeff === target.coeff;
             response.isEqual = response.isEqual && response.sameElements;
         }
@@ -335,15 +341,20 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
 
-            if (!response.allowPermutations) {
-                if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements) || !isEqual(test, target)) {
-                    // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
-                    response.sameElements = false;
-                    response.isEqual = false;             
+            if (!response.options?.allowPermutations) {
+                if (!isEqual(test, target)) {
+                    if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements)) {
+                        // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
+                        response.sameElements = false;
+                        response.isEqual = false;             
+                    }
+                    else {
+                        response.isEqual = false;
+                    }
                 }
             } 
 
-            if (response.allowPermutations && !response.checkingPermutations) {
+            if (response.options?.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
                 const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
@@ -393,7 +404,42 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isTerm(test) && isTerm(target)) {
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
-        newResponse.sameCoefficient = newResponse.sameCoefficient && checkCoefficient(test.coeff, target.coeff);
+        try {
+        
+        }
+        catch (e) {
+            response.containsError = true;
+            response.error = (e as Error).message;
+            response.isEqual = false;
+            return response;
+        }
+        const coefficientScalingValue: Fraction = STARTING_COEFFICIENT
+        if (response.options?.allowScalingCoefficients) {
+            try {
+                const coefficientScalingValue: Fraction = checkCoefficient(test.coeff, target.coeff);
+
+                // If first term: set the scaling value, and coefficients are equal.
+                if (isEqual(newResponse.coefficientScalingValue, STARTING_COEFFICIENT)) {
+                    newResponse.coefficientScalingValue = coefficientScalingValue; 
+                }
+                // If not first term: coefficients are equal only if multiplied by an equivalent scaling value.
+                else {
+                    const scalingValueRatio: Fraction = newResponse.coefficientScalingValue ? checkCoefficient(newResponse.coefficientScalingValue, coefficientScalingValue) : EQUAL_COEFFICIENT;
+                    const coefficientsMatch = isEqual(scalingValueRatio, EQUAL_COEFFICIENT)
+                    newResponse.sameCoefficient = newResponse.sameCoefficient && coefficientsMatch;
+                }
+            }
+            catch (e) {
+                response.containsError = true;
+                response.error = (e as Error).message;
+                response.isEqual = false;
+                return response;
+            }
+        } else {
+            // If coefficients are not allowed to be scaled, they must be exactly equal.
+            newResponse.sameCoefficient = newResponse.sameCoefficient && isEqual(test.coeff, target.coeff);
+        }
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
 
         if (!test.isElectron && !target.isElectron) {
             newResponse.sameState = newResponse.sameState && test.state === target.state;
@@ -404,12 +450,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
                 if (newResponse.atomCount) {
-                    newResponse.atomCount[key as ChemicalSymbol] = (newResponse.atomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff.numerator;
+                    newResponse.atomCount[key as ChemicalSymbol] = AddFrac((newResponse.atomCount[key as ChemicalSymbol] ?? STARTING_COEFFICIENT), MultFrac({numerator: value ?? 0, denominator: 1}, test.coeff));
                 }
                 else {
-                    newResponse.atomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                    newResponse.atomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff.numerator;
-                }  
+                    newResponse.atomCount = {} as Record<ChemicalSymbol, Fraction | undefined>;
+                    newResponse.atomCount[key as ChemicalSymbol] = MultFrac({numerator: value ?? 0, denominator: 1}, test.coeff)
+                } 
             };
             newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
@@ -435,7 +481,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isStatement(test) && isStatement(target)) {
         const leftResponse = checkNodesEqual(test.left, target.left, response);
 
-        const leftBalanceCount = structuredClone(leftResponse.atomCount);
+        const leftAtomCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
         leftResponse.atomCount = undefined;
         leftResponse.chargeCount = 0;
@@ -444,7 +490,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
         finalResponse.sameArrow = test.arrow === target.arrow;
-        finalResponse.isBalanced = isEqual(leftBalanceCount, finalResponse.atomCount)
+        finalResponse.isBalanced = isEqual(leftAtomCount, finalResponse.atomCount);
+        
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
 
         if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
@@ -461,7 +508,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolean): CheckerResponse {
+export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions): CheckerResponse {
     const response: CheckerResponse = {
         containsError: false,
         expectedType: target.result.type,
@@ -476,7 +523,8 @@ export function check(test: ChemAST, target: ChemAST, allowPermutations?: boolea
         isEqual: true,
         isNuclear: false,
         chargeCount: 0,
-        allowPermutations: allowPermutations ?? false
+        options: options,
+        coefficientScalingValue: STARTING_COEFFICIENT,
     }
     // Return shortcut response
     if (test.result.type === "error") {
