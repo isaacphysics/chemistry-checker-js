@@ -404,16 +404,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isTerm(test) && isTerm(target)) {
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
-        try {
-        
-        }
-        catch (e) {
-            response.containsError = true;
-            response.error = (e as Error).message;
-            response.isEqual = false;
-            return response;
-        }
-        const coefficientScalingValue: Fraction = STARTING_COEFFICIENT
         if (response.options?.allowScalingCoefficients) {
             try {
                 const coefficientScalingValue: Fraction = checkCoefficient(test.coeff, target.coeff);
