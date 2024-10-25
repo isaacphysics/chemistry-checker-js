@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { ValidationChain, body, validationResult } from "express-validator";
 import { parseNuclearExpression } from "inequality-grammar";
 import { check, augment } from "../models/Nuclear";
-import { CheckerResponse } from "../models/common";
+import { CheckerResponse, ChemistryOptions } from "../models/common";
 
 const router = Router();
 
@@ -13,7 +13,7 @@ const checkValidationRules: ValidationChain[] = [
 ];
 const parseValidationRules: ValidationChain[] = [
     body('test').notEmpty().withMessage("mhChem expression is required."),
-    body('description').optional().isString().withMessage("When provided the descrition must be a string.")
+    body('description').optional().isString().withMessage("When provided the description must be a string.")
 ];
 
 router.post('/check', checkValidationRules, (req: Request, res: Response) => {
@@ -25,8 +25,7 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const target: NuclearAST = augment(parseNuclearExpression(req.body.target)[0]);
     const test: NuclearAST = augment(parseNuclearExpression(req.body.test)[0]);
-    const allowPermutations: boolean = req.body.allowPermutations === "true";
-    const result: CheckerResponse = check(test, target, allowPermutations);
+    const result: CheckerResponse = check(test, target);
 
     res.status(201).send(result);
     

@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, chemicalSymbol, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, chemicalSymbol, ChemistryOptions, listComparison } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
@@ -231,7 +231,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unaugmented AST during checking process." };
+            response.error = "Received unaugmented AST during checking process.";
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
@@ -259,10 +259,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: boolean): CheckerResponse {
-    const response = {
+export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
+    const response: CheckerResponse = {
         containsError: false,
-        error: { message: "" },
         expectedType: target.result.type,
         receivedType: test.result.type,
         typeMismatch: false,
@@ -272,7 +271,6 @@ export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: 
         isBalanced: true,
         isEqual: true,
         isNuclear: true,
-        allowPermutations: allowPermutations ?? false,
     }
     // Return shortcut response
     if (target.result.type === "error" || test.result.type === "error") {
@@ -282,7 +280,7 @@ export function check(test: NuclearAST, target: NuclearAST, allowPermutations?: 
                 (isParseError(test.result) ? test.result.value : "No error found");
 
         response.containsError = true;
-        response.error = { message: message };
+        response.error = message;
         response.isEqual = false;
         return response;
    }
