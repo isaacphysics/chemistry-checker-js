@@ -494,7 +494,11 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         response.sameElements = false;
         response.isEqual = false;
         // We must still check the children of the node to get a complete atom acount
-        return checkNodesEqual(test, test, response);
+        if (test.type == "error") {
+            return response;
+        } else {
+            return checkNodesEqual(test, test, response);
+        }
     }
 }
 
