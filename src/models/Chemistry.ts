@@ -429,7 +429,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             // If coefficients are not allowed to be scaled, they must be exactly equal.
             newResponse.sameCoefficient = newResponse.sameCoefficient && isEqual(test.coeff, target.coeff);
         }
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
 
         if (!test.isElectron && !target.isElectron) {
             newResponse.sameState = newResponse.sameState && test.state === target.state;
