@@ -167,10 +167,8 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
-        response.isEqual = response.isEqual &&
-            checkParticlesEqual(test, target) &&
-            isValidAtomicNumber(test);
         response.validAtomicNumber = isValidAtomicNumber(test);
+        response.isEqual = response.isEqual && checkParticlesEqual(test, target) && response.validAtomicNumber;
 
         if (response.nucleonCount) {
             response.nucleonCount = [
@@ -183,10 +181,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isIsotope(test) && isIsotope(target)) {
-        response.isEqual = response.isEqual &&
-            test.element === target.element &&
-            isValidAtomicNumber(test);
         response.validAtomicNumber = isValidAtomicNumber(test);
+        response.isEqual = response.isEqual && test.element === target.element && response.validAtomicNumber;
 
         if (response.nucleonCount) {
             response.nucleonCount = [
@@ -199,17 +195,16 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isTerm(test) && isTerm(target)) {
-        if ((test.isParticle && !target.isParticle) ||
-            (!test.isParticle && target.isParticle)) {
+        if (test.isParticle !== target.isParticle) {
+            response.sameElements = false;
             response.isEqual = false;
             return response;
         }
 
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
-        newResponse.isEqual = newResponse.isEqual &&
-            test.coeff === target.coeff;
         newResponse.sameCoefficient = test.coeff === target.coeff;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
 
         if (newResponse.nucleonCount) {
             newResponse.nucleonCount = [
@@ -223,6 +218,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (test.terms && target.terms) {
             if (test.terms.length !== target.terms.length) {
                 // fail early if molecule lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
@@ -254,8 +250,15 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return finalResponse
     } else {
+        // There was a type mismatch
+        response.sameElements = false;
         response.isEqual = false;
-        return response;
+        // We must still check the children of the node to get a complete nucleon count
+        if (test.type == "error") {
+            return response;
+        } else {
+            return checkNodesEqual(test, test, response);
+        }
     }
 }
 
@@ -273,7 +276,7 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
         isNuclear: true,
     }
     // Return shortcut response
-    if (target.result.type === "error" || test.result.type === "error") {
+    if (test.result.type === "error") {
         const message =
             isParseError(target.result) ?
                 target.result.value :
@@ -283,7 +286,13 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
         response.error = message;
         response.isEqual = false;
         return response;
-   }
+    }
+    if (target.result.type === "error") {
+        // If the target (provided answer in Content) is a syntax error and the student's answer does not match it exactly,
+        // then we cannot check further and the student's answer is assumed incorrect
+        response.isEqual = false;
+        return response;
+    }
     if (test.result.type !== target.result.type) {
         response.typeMismatch = true;
         response.isEqual = false;

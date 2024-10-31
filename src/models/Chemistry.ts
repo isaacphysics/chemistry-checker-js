@@ -295,9 +295,8 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
         if (!response.options?.allowPermutations || !test.compounded) {
-            response.sameCoefficient = response.sameCoefficient && test.coeff === target.coeff;
-            response.sameElements = response.sameElements && test.value === target.value;
-            response.isEqual = response.isEqual && response.sameElements && response.sameCoefficient
+            response.sameElements = response.sameElements && test.value === target.value && test.coeff === target.coeff;
+            response.isEqual = response.isEqual && response.sameElements;
         }
 
         if (test.bracketed) {
@@ -320,9 +319,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     else if (isBracket(test) && isBracket(target)) {
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
 
-        newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
         newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && test.bracket === target.bracket;
+        newResponse.sameElements = newResponse.sameElements && test.coeff === target.coeff;
+        newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
@@ -378,6 +377,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (test.molecules && target.molecules) {
             if (test.molecules.length !== target.molecules.length) {
                 // fail early if molecule lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
@@ -429,17 +429,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             // If coefficients are not allowed to be scaled, they must be exactly equal.
             newResponse.sameCoefficient = newResponse.sameCoefficient && isEqual(test.coeff, target.coeff);
         }
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
 
         if (!test.isElectron && !target.isElectron) {
             newResponse.sameState = newResponse.sameState && test.state === target.state;
-            newResponse.isEqual = newResponse.isEqual && test.state === target.state;
-        } // else the 'isEqual' will already be false from the checkNodesEqual above
+        } 
 
-        if (test.isHydrate && target.isHydrate) {
-            // TODO: add a new property stating the hydrate was wrong?
-            newResponse.isEqual = newResponse.isEqual && test.hydrate === target.hydrate;
-        } // else the 'isEqual' will already be false from the checkNodesEqual above
+        // TODO: add a new property stating the hydrate was wrong?
 
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
@@ -495,8 +490,14 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return finalResponse;
     } else {
         // There was a type mismatch
+        response.sameElements = false;
         response.isEqual = false;
-        return response;
+        // We must still check the children of the node to get a complete atom acount
+        if (test.type == "error") {
+            return response;
+        } else {
+            return checkNodesEqual(test, test, response);
+        }
     }
 }
 
@@ -519,7 +520,7 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
         coefficientScalingValue: STARTING_COEFFICIENT,
     }
     // Return shortcut response
-    if (target.result.type === "error" || test.result.type === "error") {
+    if (test.result.type === "error") {
         const message =
             isParseError(target.result) ?
                 target.result.value :
@@ -527,6 +528,12 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
 
         response.containsError = true;
         response.error = message;
+        response.isEqual = false;
+        return response;
+    }
+    if (target.result.type === "error") {
+        // If the target (provided answer in Content) is a syntax error and the student's answer does not match it exactly,
+        // then we cannot check further and the student's answer is assumed incorrect
         response.isEqual = false;
         return response;
     }
@@ -539,6 +546,8 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
 
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameState && newResponse.sameCoefficient && (newResponse.sameBrackets == true);
+
     delete newResponse.chargeCount;
     delete newResponse.termAtomCount;
     delete newResponse.bracketAtomCount;
