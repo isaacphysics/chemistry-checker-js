@@ -242,8 +242,16 @@ function augmentNode<T extends ASTNode>(node: T): T {
 }
 
 export function augment(ast: ChemAST): ChemAST {
-    const augmentedResult: Result = augmentNode(ast.result);
-    return { result: augmentedResult };
+    if (ast) {
+        return { result: augmentNode(ast.result) };
+    } else {
+        return { result: {
+            type: 'error',
+            value: "The provided AST is empty.",
+            expected: [""],
+            loc: [0,0]
+        }};
+    }
 }
 
 function checkCoefficient(coeff1: Fraction, coeff2: Fraction): Fraction {

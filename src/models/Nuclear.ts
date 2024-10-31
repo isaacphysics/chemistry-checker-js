@@ -117,8 +117,16 @@ function augmentNode<T extends ASTNode>(node: T): T {
 }
 
 export function augment(ast: NuclearAST): NuclearAST {
-    const augmentResult: Result = augmentNode(ast.result);
-    return { result: augmentResult };
+    if (ast) {
+        return { result: augmentNode(ast.result) };
+    } else {
+        return { result: {
+            type: 'error',
+            value: "The provided AST is empty.",
+            expected: [""],
+            loc: [0,0]
+        }};
+    }
 }
 
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
