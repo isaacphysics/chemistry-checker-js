@@ -196,6 +196,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isIsotope(test) && isIsotope(target)) {
+        if (test.mass === null || test.atomic === null) {
+            response.containsError = true;
+            response.error = "Check that all atoms have a mass and atomic number!"
+            response.isEqual = false;
+            return response;
+        }
         response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && test.mass === target.mass && test.atomic === target.atomic;
         response.sameElements = response.sameElements && test.element === target.element;
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
