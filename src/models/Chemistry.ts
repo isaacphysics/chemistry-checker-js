@@ -25,7 +25,7 @@ export interface Element extends ASTNode {
     type: 'element';
     value: ChemicalSymbol;
     coeff: number;
-    bracketed?: boolean;
+    bracketed?: number;
     compounded?: boolean;
 }
 export function isElement(node: ASTNode): node is Element {
@@ -37,6 +37,7 @@ export interface Bracket extends ASTNode {
     bracket: 'round' | 'square';
     compound: Compound;
     coeff: number;
+    bracketed?: number;
 }
 export function isBracket(node: ASTNode): node is Bracket {
     return node.type === 'bracket';
@@ -45,7 +46,7 @@ export function isBracket(node: ASTNode): node is Bracket {
 export interface Compound extends ASTNode {
     type: 'compound';
     head: Element | Bracket;
-    bracketed?: boolean;
+    bracketed?: number;
     tail?: Element | Bracket | Compound;
     elements?: (Element | Bracket)[];
 }
@@ -120,6 +121,7 @@ function augmentNode<T extends ASTNode>(node: T): T {
                 // Recursively augment (preprocess the tree)
                 let elements: (Element | Bracket)[] = [];
                 if (node.tail) {
+                    node.tail.bracketed = node.bracketed;
                     const augmentedTail: Element | Bracket | Compound = augmentNode(node.tail);
 
                     if (isCompound(augmentedTail)) {
@@ -141,14 +143,12 @@ function augmentNode<T extends ASTNode>(node: T): T {
 
                     if (node.bracketed)  {
                         if (isCompound(element) || isElement(element)) {
-                            element.bracketed = true;
+                            // At the same bracket-level of the compound, so same value as the parent.
+                            element.bracketed = node.bracketed;
                         }
                         else {
-                            const errorNode = {
-                                type: "error",
-                                value: "Received nested brackets during checking process.", 
-                            };
-                            return errorNode as unknown as T;
+                            // A new layer of brackets, so increment the bracket-level.
+                            element.bracketed = node.bracketed + 1;
                         }
                     }
                 }
@@ -212,10 +212,10 @@ function augmentNode<T extends ASTNode>(node: T): T {
             }
         }
 
-        // Nodes that do not need  to be augmented but have subtrees
+        // Nodes that do not need to be augmented but have subtrees
         case "bracket": {
             if(isBracket(node)) {
-                node.compound.bracketed = true;
+                node.compound.bracketed = (node.bracketed ?? 0) + 1
                 node.compound = augmentNode(node.compound);
                 return node;
             }
@@ -308,11 +308,16 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         }
 
         if (test.bracketed) {
+            const bracketIndex = test.bracketed ? test.bracketed - 1 : 0;
             if (response.bracketAtomCount) {
-                response.bracketAtomCount[0][test.value] = (response.bracketAtomCount[0][test.value] ?? 0) + test.coeff;
+                response.bracketAtomCount[bracketIndex][test.value] = (response.bracketAtomCount[bracketIndex][test.value] ?? 0) + test.coeff;
             } else {
-                response.bracketAtomCount = [{}] as Record<ChemicalSymbol, number | undefined>[];
-                response.bracketAtomCount[0][test.value] = test.coeff;
+                let a = [];
+                for (let i = 0; i <= bracketIndex; i++) {
+                    a.push({});
+                }
+                response.bracketAtomCount = a as Record<ChemicalSymbol, number | undefined>[];
+                response.bracketAtomCount[bracketIndex][test.value] = test.coeff;
             }
         } else {
             if (response.termAtomCount) {
@@ -332,16 +337,21 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
         if (newResponse.bracketAtomCount) {
-            for (const [key, value] of Object.entries(newResponse.bracketAtomCount[0])) {
-                if (newResponse.termAtomCount) {
-                    newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
-                }
-                else {
-                    newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                    newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+            const bracketIndex = test.bracketed ? test.bracketed - 1 : 0;
+            for (const [key, value] of Object.entries(newResponse.bracketAtomCount[bracketIndex])) {
+                if (bracketIndex > 0) {
+                    newResponse.bracketAtomCount[bracketIndex-1][key as ChemicalSymbol] = (newResponse.bracketAtomCount[bracketIndex-1][key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
+                } else {
+                    if (newResponse.termAtomCount) {
+                        newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
+                    }
+                    else {
+                        newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+                        newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
+                    }
                 }
             };
-            newResponse.bracketAtomCount = [{}] as Record<ChemicalSymbol, number | undefined>[];
+            newResponse.bracketAtomCount.pop();
         }
 
         return newResponse;
@@ -502,6 +512,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         response.isEqual = false;
         // We must still check the children of the node to get a complete atom acount
         if (test.type == "error") {
+            response.containsError = true;
+            response.error = "Error type encountered during checking process.";
             return response;
         } else {
             return checkNodesEqual(test, test, response);
