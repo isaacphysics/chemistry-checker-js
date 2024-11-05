@@ -309,10 +309,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         if (test.bracketed) {
             if (response.bracketAtomCount) {
-                response.bracketAtomCount[test.value] = (response.bracketAtomCount[test.value] ?? 0) + test.coeff;
+                response.bracketAtomCount[0][test.value] = (response.bracketAtomCount[0][test.value] ?? 0) + test.coeff;
             } else {
-                response.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                response.bracketAtomCount[test.value] = test.coeff;
+                response.bracketAtomCount = [{}] as Record<ChemicalSymbol, number | undefined>[];
+                response.bracketAtomCount[0][test.value] = test.coeff;
             }
         } else {
             if (response.termAtomCount) {
@@ -332,7 +332,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
         if (newResponse.bracketAtomCount) {
-            for (const [key, value] of Object.entries(newResponse.bracketAtomCount)) {
+            for (const [key, value] of Object.entries(newResponse.bracketAtomCount[0])) {
                 if (newResponse.termAtomCount) {
                     newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
                 }
@@ -341,7 +341,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                     newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
                 }
             };
-            newResponse.bracketAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+            newResponse.bracketAtomCount = [{}] as Record<ChemicalSymbol, number | undefined>[];
         }
 
         return newResponse;

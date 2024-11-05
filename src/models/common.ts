@@ -36,7 +36,7 @@ export interface CheckerResponse {
     // book keeping
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
-    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>;
+    bracketAtomCount?: Record<ChemicalSymbol, number | undefined>[];
     atomCount?: Record<ChemicalSymbol, Fraction | undefined>;
     chargeCount?: number;
     nucleonCount?: [number, number];
