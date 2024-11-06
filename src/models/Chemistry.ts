@@ -60,6 +60,7 @@ export interface Ion extends ASTNode {
     charge: number;
     chain?: Ion | Molecule;
     molecules?: [Molecule, number][];
+    bracketed?: number;
 }
 export function isIon(node: ASTNode): node is Ion {
     return node.type === 'ion';
@@ -165,6 +166,7 @@ function augmentNode<T extends ASTNode>(node: T): T {
 
                 // Recursively augmented
                 if (node.chain) {
+                    node.chain.bracketed = node.bracketed;
                     const augmentedChain = augmentNode(node.chain);
 
                     if (isIon(augmentedChain)) {
@@ -174,7 +176,9 @@ function augmentNode<T extends ASTNode>(node: T): T {
                     }
                 }
 
+                node.molecule.bracketed = node.bracketed;
                 const augmentedMolecule: Molecule = augmentNode(node.molecule)
+                // augmentedMolecule.bracketed = node.bracketed;
 
                 // Append the current values
                 molecules.push([augmentedMolecule, node.charge]);
@@ -308,24 +312,23 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         }
 
         if (test.bracketed) {
+            if (!response.bracketAtomCount) {
+                response.bracketAtomCount = [];
+            }
+
             const bracketIndex = test.bracketed ? test.bracketed - 1 : 0;
-            if (response.bracketAtomCount) {
-                response.bracketAtomCount[bracketIndex][test.value] = (response.bracketAtomCount[bracketIndex][test.value] ?? 0) + test.coeff;
-            } else {
-                let a = [];
-                for (let i = 0; i <= bracketIndex; i++) {
-                    a.push({});
-                }
-                response.bracketAtomCount = a as Record<ChemicalSymbol, number | undefined>[];
-                response.bracketAtomCount[bracketIndex][test.value] = test.coeff;
+            for (let i = response.bracketAtomCount.length; i <= bracketIndex; i++) {
+                response.bracketAtomCount.push({} as Record<ChemicalSymbol, number | undefined>);
             }
+
+            response.bracketAtomCount[bracketIndex][test.value] = (response.bracketAtomCount[bracketIndex][test.value] ?? 0) + test.coeff;
         } else {
-            if (response.termAtomCount) {
-                response.termAtomCount[test.value] = (response.termAtomCount[test.value] ?? 0) + test.coeff;
-            } else {
+            if (!response.termAtomCount) {
                 response.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                response.termAtomCount[test.value] = test.coeff;
             }
+
+            response.termAtomCount[test.value] = (response.termAtomCount[test.value] ?? 0) + test.coeff;
+            response.termChargeCount = (response.termChargeCount ?? 0);
         }
         return response;
     }
@@ -342,16 +345,32 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 if (bracketIndex > 0) {
                     newResponse.bracketAtomCount[bracketIndex-1][key as ChemicalSymbol] = (newResponse.bracketAtomCount[bracketIndex-1][key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
                 } else {
-                    if (newResponse.termAtomCount) {
-                        newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
-                    }
-                    else {
+                    if (!newResponse.termAtomCount) {
                         newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
-                        newResponse.termAtomCount[key as ChemicalSymbol] = (value ?? 0) * test.coeff;
                     }
+                    newResponse.termAtomCount[key as ChemicalSymbol] = (newResponse.termAtomCount[key as ChemicalSymbol] ?? 0) + (value ?? 0) * test.coeff;
                 }
             };
             newResponse.bracketAtomCount.pop();
+            if (newResponse.bracketAtomCount.length === 0) {
+                newResponse.bracketAtomCount = undefined;
+            }
+        }
+
+        if (newResponse.bracketChargeCount) {
+            const bracketIndex = test.bracketed ? test.bracketed - 1 : 0;
+            console.log("cc", newResponse.chargeCount, newResponse.termChargeCount, newResponse.bracketChargeCount, "--", bracketIndex, test.coeff, "--", newResponse.bracketAtomCount, newResponse.termAtomCount, newResponse.atomCount);
+            if (bracketIndex > 0) {
+                newResponse.bracketChargeCount[bracketIndex-1] = (newResponse.bracketChargeCount[bracketIndex-1] ?? 0) + newResponse.bracketChargeCount[bracketIndex] * test.coeff;
+            } else {
+                newResponse.termChargeCount = (newResponse.termChargeCount ?? 0) + newResponse.bracketChargeCount[bracketIndex] * test.coeff;
+            }
+
+            newResponse.bracketChargeCount.pop();
+            if (newResponse.bracketChargeCount.length === 0) {
+                newResponse.bracketChargeCount = undefined;
+            }
+            console.log("cc2", newResponse.chargeCount, newResponse.termChargeCount, newResponse.bracketChargeCount, "--", bracketIndex, test.coeff, "--", newResponse.bracketAtomCount, newResponse.termAtomCount, newResponse.atomCount);
         }
 
         return newResponse;
@@ -403,7 +422,23 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
                 const newResponse = checkNodesEqual(test[0], target[0], response);
                 newResponse.isEqual = newResponse.isEqual && test[1] === target[1];
-                newResponse.chargeCount = (newResponse.chargeCount ?? 0) + test[1];
+                if (!newResponse.bracketChargeCount) {
+                    newResponse.bracketChargeCount = []; 
+                }
+
+                if (!test[0].bracketed) {
+                    newResponse.termChargeCount =  test[1];
+                }
+                else {
+                    const bracketIndex = test[0].bracketed ? test[0].bracketed - 1 : 0;
+                
+                    for (let i = newResponse.bracketChargeCount.length; i <= bracketIndex; i++) {
+                        newResponse.bracketChargeCount.push(0);
+                    }
+        
+                    newResponse.bracketChargeCount[bracketIndex] = (newResponse.bracketChargeCount[bracketIndex] ?? 0) + test[1];
+                }
+            
                 return newResponse;
             }
 
@@ -467,6 +502,18 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
+        console.log("nr", newResponse);
+        if (newResponse.termChargeCount) {
+            if (newResponse.chargeCount) {
+                newResponse.chargeCount = AddFrac(newResponse.chargeCount, MultFrac({numerator: newResponse.termChargeCount ?? 0, denominator: 1}, test.coeff));
+            }
+            else {
+                newResponse.chargeCount = MultFrac({numerator: newResponse.termChargeCount ?? 0, denominator: 1}, test.coeff)
+            } 
+            newResponse.termChargeCount = 0;
+        }
+        console.log("nr2", newResponse);
+
         return newResponse;
     }
     else if (isExpression(test) && isExpression(target)) {
@@ -491,7 +538,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         const leftAtomCount = structuredClone(leftResponse.atomCount);
         const leftChargeCount = structuredClone(leftResponse.chargeCount);
         leftResponse.atomCount = undefined;
-        leftResponse.chargeCount = 0;
+        leftResponse.chargeCount = STARTING_COEFFICIENT;
 
         const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
 
@@ -500,6 +547,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         finalResponse.isBalanced = isEqual(leftAtomCount, finalResponse.atomCount);
         
         finalResponse.balancedCharge = leftChargeCount === finalResponse.chargeCount;
+        console.log(leftChargeCount, finalResponse.chargeCount);
 
         if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
             finalResponse.isBalanced = true;
@@ -535,7 +583,7 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
         isBalanced: true,
         isEqual: true,
         isNuclear: false,
-        chargeCount: 0,
+        chargeCount: STARTING_COEFFICIENT,
         options: options,
         coefficientScalingValue: STARTING_COEFFICIENT,
     }

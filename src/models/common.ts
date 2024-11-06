@@ -38,7 +38,9 @@ export interface CheckerResponse {
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
     bracketAtomCount?: Record<ChemicalSymbol, number | undefined>[];
     atomCount?: Record<ChemicalSymbol, Fraction | undefined>;
-    chargeCount?: number;
+    termChargeCount?: number;
+    bracketChargeCount?: number[];
+    chargeCount?: Fraction;
     nucleonCount?: [number, number];
     options?: ChemistryOptions;
 }
