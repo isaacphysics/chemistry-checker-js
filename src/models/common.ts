@@ -9,22 +9,20 @@ export interface Fraction {
 }
 
 export interface ChemistryOptions {
-    allowPermutations: boolean;
-    allowScalingCoefficients: boolean;
+    allowPermutations?: boolean;
+    allowScalingCoefficients?: boolean;
 }
 
 export interface CheckerResponse {
+    isNuclear: boolean;
     containsError: boolean;
-    expectedType: ReturnType;
-    receivedType: ReturnType;
     isBalanced: boolean;
     isEqual: boolean;
-    isNuclear: boolean;
     typeMismatch: boolean;
-    sameState: boolean;
     sameCoefficient: boolean;
     sameElements: boolean;
     // properties dependent on type
+    sameState?: boolean;
     sameArrow?: boolean;
     sameBrackets?: boolean;
     validAtomicNumber?: boolean;
@@ -34,6 +32,8 @@ export interface CheckerResponse {
     coefficientScalingValue?: Fraction;
     error?: string;
     // book keeping
+    expectedType?: ReturnType;
+    receivedType?: ReturnType;
     checkingPermutations? : boolean;
     termAtomCount?: Record<ChemicalSymbol, number | undefined>;
     bracketAtomCount?: Record<ChemicalSymbol, number | undefined>[];
@@ -43,6 +43,25 @@ export interface CheckerResponse {
     chargeCount?: Fraction;
     nucleonCount?: [number, number];
     options?: ChemistryOptions;
+}
+
+
+export function mergeResponses(response1: CheckerResponse, response2: CheckerResponse): CheckerResponse {
+    const newResponse = structuredClone(response1);
+
+    if (response2.containsError && !response1.containsError) {
+        newResponse.containsError = response2.containsError;
+        newResponse.error = response2.error;
+    }
+    newResponse.isEqual = response1.isEqual && response2.isEqual;
+    newResponse.typeMismatch = response1.typeMismatch || response2.typeMismatch;
+    newResponse.sameCoefficient = response1.sameCoefficient && response2.sameCoefficient;
+    newResponse.sameState = response1.sameState && response2.sameState;
+    newResponse.sameElements = response1.sameElements && response2.sameElements;
+    newResponse.sameBrackets = response1.sameBrackets && response2.sameBrackets;
+    newResponse.validAtomicNumber = response1.validAtomicNumber && response2.validAtomicNumber;
+
+    return newResponse;
 }
 
 export function listComparison<T>(

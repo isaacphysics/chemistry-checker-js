@@ -173,6 +173,18 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
     }
 }
 
+const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (options) => { return {
+    isNuclear: true,
+    containsError: false,
+    isEqual: true,
+    isBalanced: true,
+    typeMismatch: false,
+    sameCoefficient: true,
+    sameElements: true,
+    validAtomicNumber: true,
+    options: options ?? {},
+} };
+
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
         if (test.mass === null || test.atomic === null) {
@@ -249,7 +261,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
-        const leftResponse = checkNodesEqual(test.left, target.left, response);
+        const leftResponse = checkNodesEqual(test.left, target.left, response); 
         const leftNucleonCount = leftResponse.nucleonCount;
         leftResponse.nucleonCount = [0, 0];
 
@@ -282,19 +294,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 }
 
 export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    const response: CheckerResponse = {
-        containsError: false,
-        expectedType: target.result.type,
-        receivedType: test.result.type,
-        typeMismatch: false,
-        validAtomicNumber: true,
-        sameState: true,
-        sameCoefficient: true,
-        sameElements: true,
-        isBalanced: true,
-        isEqual: true,
-        isNuclear: true,
-    }
+    const response = STARTING_RESPONSE();
+    response.expectedType = target.result.type;
+    response.receivedType = test.result.type;
+
     // Return shortcut response
     if (test.result.type === "error") {
         const message =

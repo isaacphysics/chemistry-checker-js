@@ -1,4 +1,4 @@
-import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, MultFrac } from './common'
+import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, mergeResponses, MultFrac } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -114,6 +114,22 @@ export interface ChemAST {
 const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
 const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
+const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: Fraction) => CheckerResponse = (options, coefficientScalingValue) => { return {
+    isNuclear: false,
+    containsError: false,
+    isBalanced: true,
+    isEqual: true,
+    typeMismatch: false,
+    sameCoefficient: true,
+    sameElements: true,
+    sameState: true,
+    sameArrow: true,
+    sameBrackets: true,
+    isChargeBalanced: true,
+    options: options ?? {},
+    coefficientScalingValue: coefficientScalingValue ?? STARTING_COEFFICIENT,
+} };
+
 function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
     switch (node.type) {
@@ -204,15 +220,16 @@ function augmentNode<T extends ASTNode>(node: T): T {
                 return node;
             }
         }
-
-        // Nodes that do not need to be augmented but have subtrees
         case "bracket": {
             if(isBracket(node)) {
+                // node.bracketed defined the layer of brackets the node is in. If it in unbracketed, node.bracketed is undefined.
                 node.compound.bracketed = (node.bracketed ?? 0) + 1
                 node.compound = augmentNode(node.compound);
                 return node;
             }
         }
+
+        // Nodes that do not need to be augmented but have subtrees
         case "term": {
             if (isTerm(node)) {
                 node.value = augmentNode(node.value);
@@ -283,13 +300,25 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
     return numElementsDifferent === 0 && numMoleculesDifferent === 0;
 }
 
+function removeAggregates(response: CheckerResponse): CheckerResponse {
+    delete response.bracketChargeCount;
+    delete response.termChargeCount;
+    delete response.chargeCount;
+    delete response.bracketAtomCount;
+    delete response.termAtomCount;
+    delete response.atomCount;
+    return response;
+}
+
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
+        // If permutations are disallowed or if the element is its own (uncompounded) term, we can directly compare the elements
         if (!response.options?.allowPermutations || !test.compounded) {
             response.sameElements = response.sameElements && test.value === target.value && test.coeff === target.coeff;
             response.isEqual = response.isEqual && response.sameElements;
         }
 
+        // Add the element to the atomCount of the revelent bracket level
         if (test.bracketed) {
             const bracketIndex = test.bracketed - 1;
             if (!response.bracketAtomCount) {
@@ -313,13 +342,16 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return response;
     }
     else if (isBracket(test) && isBracket(target)) {
+        // Check the bracket's children
         const newResponse = checkNodesEqual(test.compound, target.compound, response);
         const bracketIndex = test.compound.bracketed ? test.compound.bracketed - 1 : 0;
 
+        // Set a flag for sameBrackets here, but apply the isEqual check at the end (because of listComparison)
         newResponse.sameBrackets = newResponse.sameBrackets && test.bracket === target.bracket;
         newResponse.sameElements = newResponse.sameElements && test.coeff === target.coeff;
         newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
+        // Add the element to the atomCount of the revelent bracket level
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount[bracketIndex])) {
                 if (bracketIndex > 0) {
@@ -335,6 +367,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.bracketAtomCount.pop();
         }
 
+        // Add the charge to the chargeCount of the revelent bracket level
         if (newResponse.bracketChargeCount) {
             if (bracketIndex > 0) {
                 newResponse.bracketChargeCount[bracketIndex-1] = (newResponse.bracketChargeCount[bracketIndex-1] ?? 0) + (newResponse.bracketChargeCount[bracketIndex] ?? 0) * test.coeff;
@@ -348,7 +381,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isCompound(test) && isCompound(target)) {
         if (test.elements && target.elements) {
-
+            // If permutations are disallowed, we can attempt to directly compare the elements at this level
             if (!response.options?.allowPermutations) {
                 if (!isEqual(test, target)) {
                     if (test.elements.length !== target.elements.length || !typesMatch(test.elements, target.elements)) {
@@ -362,17 +395,19 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 }
             } 
 
+            // If permutations are allowed, we instead compare the atomCounts of the elements
             if (response.options?.allowPermutations && !response.checkingPermutations) {
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
+
                 const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
                 const targetResponse = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
 
-                response.isEqual = response.isEqual && isEqual(testResponse.atomCount, targetResponse.atomCount) 
-                                && isEqual(testResponse.termAtomCount, targetResponse.termAtomCount);
+                response.isEqual = response.isEqual && isEqual(testResponse.atomCount, targetResponse.atomCount) && isEqual(testResponse.termAtomCount, targetResponse.termAtomCount);
                 return response
             } 
             
+            // Check all permutations of the compound until we get a match
             return listComparison(test.elements, target.elements, response, checkNodesEqual);
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
@@ -383,6 +418,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isIon(test) && isIon(target)) {
         if (test.molecules && target.molecules) {
+            // If permutations are disallowed, we can attempt to directly compare the elements at this level
             if (!response.options?.allowPermutations) {
                 if (!isEqual(test, target)) {
                     if (test.molecules.length !== target.molecules.length) {
@@ -401,8 +437,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 newResponse.isEqual = newResponse.isEqual && test[1] === target[1];
                 
                 if (!test[0].bracketed) {
+                    // If not bracketed, add the charge directly to the chargeCount of the term
                     newResponse.termChargeCount = (newResponse.termChargeCount ?? 0) + test[1];
                 } else {
+                    // If bracketed, add the charge to the chargeCount of the revelent bracket level
                     const bracketIndex = test[0].bracketed - 1;
                     if (!newResponse.bracketChargeCount) {
                         newResponse.bracketChargeCount = []; 
@@ -418,8 +456,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 return newResponse;
             }
 
+            // Check all permutations of the ion chain until we get a match
             return listComparison(test.molecules, target.molecules, response, comparator);
-
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
@@ -428,12 +466,15 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         }
     }
     else if (isElectron(test) && isElectron(target)) {
+        // There is no need to check electrons, they are always equal
         return response;
     }
     else if (isTerm(test) && isTerm(target)) {
+        // Check the term's children
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
         if (response.options?.allowScalingCoefficients) {
+            // If coefficients are allowed to be scaled, the scaling factor must be equivalent for all terms
             try {
                 const coefficientScalingValue: Fraction = checkCoefficient(test.coeff, target.coeff);
 
@@ -459,12 +500,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.sameCoefficient = newResponse.sameCoefficient && isEqual(test.coeff, target.coeff);
         }
 
-        if (!test.isElectron && !target.isElectron) {
-            newResponse.sameState = newResponse.sameState && test.state === target.state;
-        } 
-
+        newResponse.sameState = newResponse.sameState && test.state === target.state;
         // TODO: add a new property stating the hydrate was wrong?
 
+        // Add the term's atomCount (* coefficient) to the overall statement atomCount
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
                 if (newResponse.atomCount) {
@@ -478,6 +517,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
+        // Add the term's chargeCount (* coefficient) to the overall statement chargeCount
         if (newResponse.termChargeCount) {
             if (newResponse.chargeCount) {
                 newResponse.chargeCount = AddFrac(newResponse.chargeCount, MultFrac({numerator: newResponse.termChargeCount ?? 0, denominator: 1}, test.coeff));
@@ -492,12 +532,14 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
+            // If the number of terms in the expression is wrong, there is no way they can be equivalent and we can fail early
             if (test.terms.length !== target.terms.length) {
                 response.sameElements = false;
                 response.isEqual = false;
                 return response;
             }
 
+            // Check all permutations of the expression until we get a match
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
@@ -507,41 +549,30 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         }
     }
     else if (isStatement(test) && isStatement(target)) {
+        // Determine responses for both the left and right side of the statement
         let leftResponse = checkNodesEqual(test.left, target.left, response);
+        let rightResponse = STARTING_RESPONSE(leftResponse.options, leftResponse.coefficientScalingValue);
+        rightResponse = checkNodesEqual(test.right, target.right, rightResponse);
 
-        const leftAtomCount = structuredClone(leftResponse.atomCount);
-        const leftChargeCount = structuredClone(leftResponse.chargeCount);
-        const leftEqual = structuredClone(leftResponse.isEqual);
-        const leftSameElements = structuredClone(leftResponse.sameElements);
-        delete leftResponse.atomCount;
-        delete leftResponse.chargeCount;
-        delete leftResponse.termAtomCount;
-        delete leftResponse.termChargeCount;
-        delete leftResponse.bracketAtomCount;
-        delete leftResponse.bracketChargeCount;
-        leftResponse.isEqual = true;
-        leftResponse.sameElements = true;
+        // Merge the responses so that the final response contains all the information
+        const finalResponse = mergeResponses(leftResponse, rightResponse);
 
-        const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
-        finalResponse.sameElements = finalResponse.sameElements && leftSameElements; 
-        finalResponse.isEqual = finalResponse.isEqual && leftEqual;
-        
         finalResponse.sameArrow = test.arrow === target.arrow;
-        finalResponse.isEqual = finalResponse.isEqual && test.arrow === target.arrow;
-        finalResponse.isBalanced = isEqual(leftAtomCount, finalResponse.atomCount);
-        
-        finalResponse.isChargeBalanced = isEqual(leftChargeCount, finalResponse.chargeCount);
-
-        if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) { 
+        finalResponse.isBalanced = isEqual(leftResponse.atomCount, rightResponse.atomCount);
+        finalResponse.isChargeBalanced = isEqual(leftResponse.chargeCount, rightResponse.chargeCount);
+        // If the equation is imbalanced due to the coefficients, we'd rather give direct feedback about the coefficients
+        if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) {
             finalResponse.isBalanced = true;
         }
+
+        finalResponse.isEqual = finalResponse.isEqual && finalResponse.sameArrow && finalResponse.isBalanced && finalResponse.isChargeBalanced;
 
         return finalResponse;
     } else {
         // There was a type mismatch
         response.sameElements = false;
         response.isEqual = false;
-        // We must still check the children of the node to get a complete atom acount
+        // We must still check the children of the node to get complete aggregate counts
         if (test.type == "error") {
             response.containsError = true;
             response.error = "Error type encountered during checking process.";
@@ -553,23 +584,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 }
 
 export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions): CheckerResponse {
-    const response: CheckerResponse = {
-        containsError: false,
-        expectedType: target.result.type,
-        receivedType: test.result.type,
-        typeMismatch: false,
-        sameState: true,
-        sameCoefficient: true,
-        sameArrow: true,
-        sameBrackets: true,
-        sameElements: true,
-        isBalanced: true,
-        isChargeBalanced: true,
-        isEqual: true,
-        isNuclear: false,
-        options: options,
-        coefficientScalingValue: STARTING_COEFFICIENT,
-    }
+    const response = STARTING_RESPONSE(options);
+    response.expectedType = target.result.type;
+    response.receivedType = test.result.type;
+
     // Return shortcut response
     if (test.result.type === "error") {
         const message =
@@ -589,22 +607,16 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
         return response;
     }
     if (test.result.type !== target.result.type) {
-        response.expectedType = target.result.type;
         response.typeMismatch = true;
         response.isEqual = false;
         return response;
     }
-    
 
-    const newResponse = checkNodesEqual(test.result, target.result, response);
-    newResponse.isEqual = newResponse.isEqual && newResponse.sameState && newResponse.sameCoefficient && (newResponse.sameBrackets == true);
+    let newResponse = checkNodesEqual(test.result, target.result, response);
+    // We set flags for these properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState == true) && (newResponse.sameBrackets == true);
 
-    delete newResponse.bracketChargeCount;
-    delete newResponse.termChargeCount;
-    delete newResponse.chargeCount;
-    delete newResponse.bracketAtomCount;
-    delete newResponse.termAtomCount;
-    delete newResponse.atomCount;
+    newResponse = removeAggregates(newResponse);
     return newResponse;
 }
 
