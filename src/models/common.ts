@@ -27,8 +27,8 @@ export interface CheckerResponse {
     // properties dependent on type
     sameArrow?: boolean;
     sameBrackets?: boolean;
-    balancedCharge?: boolean;
     validAtomicNumber?: boolean;
+    isChargeBalanced?: boolean;
     balancedAtom?: boolean;
     balancedMass?: boolean;
     coefficientScalingValue?: Fraction;
