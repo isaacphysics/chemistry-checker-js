@@ -117,8 +117,16 @@ function augmentNode<T extends ASTNode>(node: T): T {
 }
 
 export function augment(ast: NuclearAST): NuclearAST {
-    const augmentResult: Result = augmentNode(ast.result);
-    return { result: augmentResult };
+    if (ast) {
+        return { result: augmentNode(ast.result) };
+    } else {
+        return { result: {
+            type: 'error',
+            value: "The provided AST is empty.",
+            expected: [""],
+            loc: [0,0]
+        }};
+    }
 }
 
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
@@ -167,8 +175,15 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
-        response.validAtomicNumber = isValidAtomicNumber(test);
-        response.isEqual = response.isEqual && checkParticlesEqual(test, target) && response.validAtomicNumber;
+        if (test.mass === null || test.atomic === null) {
+            response.containsError = true;
+            response.error = "Check that all atoms have a mass and atomic number!"
+            response.isEqual = false;
+            return response;
+        }
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
+        response.sameElements = response.sameElements && checkParticlesEqual(test, target);
+        response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
         if (response.nucleonCount) {
             response.nucleonCount = [
@@ -181,8 +196,15 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isIsotope(test) && isIsotope(target)) {
-        response.validAtomicNumber = isValidAtomicNumber(test);
-        response.isEqual = response.isEqual && test.element === target.element && response.validAtomicNumber;
+        if (test.mass === null || test.atomic === null) {
+            response.containsError = true;
+            response.error = "Check that all atoms have a mass and atomic number!"
+            response.isEqual = false;
+            return response;
+        }
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && test.mass === target.mass && test.atomic === target.atomic;
+        response.sameElements = response.sameElements && test.element === target.element;
+        response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
         if (response.nucleonCount) {
             response.nucleonCount = [
@@ -198,13 +220,11 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (test.isParticle !== target.isParticle) {
             response.sameElements = false;
             response.isEqual = false;
-            return response;
         }
 
         const newResponse = checkNodesEqual(test.value, target.value, response);
 
         newResponse.sameCoefficient = test.coeff === target.coeff;
-        newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
 
         if (newResponse.nucleonCount) {
             newResponse.nucleonCount = [
@@ -217,10 +237,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     } else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
             if (test.terms.length !== target.terms.length) {
-                // fail early if molecule lengths not the same
                 response.sameElements = false;
                 response.isEqual = false;
-                return response;
             }
 
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
@@ -247,6 +265,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         finalResponse.balancedMass = leftNucleonCount && finalResponse.nucleonCount ?
             leftNucleonCount[1] === finalResponse.nucleonCount[1] :
             false;
+        finalResponse.isEqual = finalResponse.isEqual && finalResponse.isBalanced;
 
         return finalResponse
     } else {
@@ -268,6 +287,7 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
         expectedType: target.result.type,
         receivedType: test.result.type,
         typeMismatch: false,
+        validAtomicNumber: true,
         sameState: true,
         sameCoefficient: true,
         sameElements: true,
@@ -300,6 +320,7 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
     }
 
     const newResponse = checkNodesEqual(test.result, target.result, response);
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
     delete newResponse.nucleonCount;
     return newResponse;
 }
