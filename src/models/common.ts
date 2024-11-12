@@ -23,6 +23,7 @@ export interface CheckerResponse {
     sameElements: boolean;
     // properties dependent on type
     sameState?: boolean;
+    sameCharge?: boolean;
     sameArrow?: boolean;
     sameBrackets?: boolean;
     validAtomicNumber?: boolean;
@@ -41,10 +42,10 @@ export interface CheckerResponse {
     termChargeCount?: number;
     bracketChargeCount?: number[];
     chargeCount?: Fraction;
+    termNucleonCount?: [number, number];
     nucleonCount?: [number, number];
     options?: ChemistryOptions;
 }
-
 
 export function mergeResponses(response1: CheckerResponse, response2: CheckerResponse): CheckerResponse {
     const newResponse = structuredClone(response1);
@@ -62,6 +63,18 @@ export function mergeResponses(response1: CheckerResponse, response2: CheckerRes
     newResponse.validAtomicNumber = response1.validAtomicNumber && response2.validAtomicNumber;
 
     return newResponse;
+}
+
+export function removeAggregates(response: CheckerResponse): CheckerResponse {
+    delete response.bracketChargeCount;
+    delete response.termChargeCount;
+    delete response.chargeCount;
+    delete response.bracketAtomCount;
+    delete response.termAtomCount;
+    delete response.atomCount;
+    delete response.termNucleonCount;
+    delete response.nucleonCount;
+    return response;
 }
 
 export function listComparison<T>(

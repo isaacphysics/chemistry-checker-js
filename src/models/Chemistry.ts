@@ -1,4 +1,4 @@
-import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, mergeResponses, MultFrac } from './common'
+import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, mergeResponses, MultFrac, removeAggregates } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -123,6 +123,7 @@ const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: 
     sameCoefficient: true,
     sameElements: true,
     sameState: true,
+    sameCharge: true,
     sameArrow: true,
     sameBrackets: true,
     isChargeBalanced: true,
@@ -300,16 +301,6 @@ function typesMatch(compound1: (Element | Bracket)[], compound2: (Element | Brac
     return numElementsDifferent === 0 && numMoleculesDifferent === 0;
 }
 
-function removeAggregates(response: CheckerResponse): CheckerResponse {
-    delete response.bracketChargeCount;
-    delete response.termChargeCount;
-    delete response.chargeCount;
-    delete response.bracketAtomCount;
-    delete response.termAtomCount;
-    delete response.atomCount;
-    return response;
-}
-
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isElement(test) && isElement(target)) {
         // If permutations are disallowed or if the element is its own (uncompounded) term, we can directly compare the elements
@@ -434,7 +425,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
             const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
                 const newResponse = checkNodesEqual(test[0], target[0], response);
-                newResponse.isEqual = newResponse.isEqual && test[1] === target[1];
+                newResponse.sameCharge = newResponse.sameCharge && test[1] === target[1];
+                newResponse.isEqual = newResponse.isEqual && (newResponse.sameCharge === true);
                 
                 if (!test[0].bracketed) {
                     // If not bracketed, add the charge directly to the chargeCount of the term
@@ -503,7 +495,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.sameState = newResponse.sameState && test.state === target.state;
         // TODO: add a new property stating the hydrate was wrong?
 
-        // Add the term's atomCount (* coefficient) to the overall statement atomCount
+        // Add the term's atomCount (* coefficient) to the overall expression atomCount
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
                 if (newResponse.atomCount) {
@@ -517,7 +509,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
         }
 
-        // Add the term's chargeCount (* coefficient) to the overall statement chargeCount
+        // Add the term's chargeCount (* coefficient) to the overall expression chargeCount
         if (newResponse.termChargeCount) {
             if (newResponse.chargeCount) {
                 newResponse.chargeCount = AddFrac(newResponse.chargeCount, MultFrac({numerator: newResponse.termChargeCount ?? 0, denominator: 1}, test.coeff));
@@ -532,11 +524,10 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
-            // If the number of terms in the expression is wrong, there is no way they can be equivalent and we can fail early
+            // If the number of terms in the expression is wrong, there is no way they can be equivalent
             if (test.terms.length !== target.terms.length) {
                 response.sameElements = false;
                 response.isEqual = false;
-                return response;
             }
 
             // Check all permutations of the expression until we get a match
