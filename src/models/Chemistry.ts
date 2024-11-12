@@ -7,7 +7,7 @@ export type Arrow = 'SArr'|'DArr';
 export type Molecule = Element | Compound;
 export type Result = Statement | Expression | Term | ParseError;
 
-interface ASTNode {
+export interface ASTNode {
     type: Type;
 }
 
@@ -111,7 +111,7 @@ export interface ChemAST {
     result: Result;
 }
 
-const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
+export const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
 const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
 const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: Fraction) => CheckerResponse = (options, coefficientScalingValue) => { return {
@@ -579,6 +579,10 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
+    if (isEqual(test.result, target.result)) {
+        return response;
+    }
+
     // Return shortcut response
     if (test.result.type === "error") {
         const message =
@@ -607,7 +611,9 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
     // We set flags for these properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
     newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState == true) && (newResponse.sameBrackets == true);
 
-    newResponse = removeAggregates(newResponse);
+    if (!newResponse.options?.keepAggregates) {
+        newResponse = removeAggregates(newResponse);
+    }
     return newResponse;
 }
 

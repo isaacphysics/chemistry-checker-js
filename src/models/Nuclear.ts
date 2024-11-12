@@ -1,10 +1,11 @@
+import { isEqual } from 'lodash';
 import { CheckerResponse, ChemicalSymbol, chemicalSymbol, ChemistryOptions, listComparison, mergeResponses, removeAggregates } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
 export type Result = Statement | Expression | Term | ParseError;
 
-interface ASTNode {
+export interface ASTNode {
     type: Type;
 }
 
@@ -71,7 +72,7 @@ export interface NuclearAST {
     result: Result;
 }
 
-function augmentNode<T extends ASTNode>(node: T): T {
+export function augmentNode<T extends ASTNode>(node: T): T {
     // The if statements signal to the type checker what we already know
     switch (node.type) {
         case "expr": {
@@ -177,6 +178,8 @@ const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (opti
     isNuclear: true,
     containsError: false,
     isEqual: true,
+    balancedMass: true,
+    balancedAtom: true,
     isBalanced: true,
     typeMismatch: false,
     sameCoefficient: true,
@@ -195,7 +198,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             return response;
         }
 
-        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
+        response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
         response.sameElements = response.sameElements && checkParticlesEqual(test, target);
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
@@ -219,8 +222,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             return response;
         }
 
-        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && test.mass === target.mass && test.atomic === target.atomic;
         response.sameElements = response.sameElements && test.element === target.element;
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && (response.sameElements ? test.mass === target.mass && test.atomic === target.atomic : true);
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
         // Add the term's nucleon counts to the term's nucleon count
@@ -246,12 +249,14 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.sameCoefficient = test.coeff === target.coeff;
 
         // Add the term's nucleon counts to the overall expression nucleon count
-        if (newResponse.nucleonCount) {
-            newResponse.nucleonCount = [
-                newResponse.nucleonCount[0] + (newResponse.termNucleonCount ?? [0,0])[0] * test.coeff,
-                newResponse.nucleonCount[1] + (newResponse.termNucleonCount ?? [0,0])[1] * test.coeff,
-            ]
+        if (!newResponse.nucleonCount) {
+            newResponse.nucleonCount = [0,0];
         }
+        newResponse.nucleonCount = [
+            newResponse.nucleonCount[0] + (newResponse.termNucleonCount ?? [0,0])[0] * test.coeff,
+            newResponse.nucleonCount[1] + (newResponse.termNucleonCount ?? [0,0])[1] * test.coeff,
+        ]
+        newResponse.termNucleonCount = [0,0]
 
         return newResponse;
     } else if (isExpression(test) && isExpression(target)) {
@@ -273,10 +278,11 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         // Determine responses for both the left and right side of the statement
         const leftResponse = checkNodesEqual(test.left, target.left, response); 
         let rightResponse = STARTING_RESPONSE(leftResponse.options);
-        rightResponse = checkNodesEqual(test.right, target.right, leftResponse);
+        rightResponse = checkNodesEqual(test.right, target.right, rightResponse);
 
         // Merge the responses so that the final response contains all the information
         const finalResponse = mergeResponses(leftResponse, rightResponse);
+
 
         // Nuclear question balance is determined by atom/mass count equality
         finalResponse.balancedAtom = leftResponse.nucleonCount && rightResponse.nucleonCount ?
@@ -308,6 +314,10 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
+    if (isEqual(test.result, target.result)) {
+        return response;
+    }
+
     // Return shortcut response
     if (test.result.type === "error") {
         const message =
@@ -335,7 +345,9 @@ export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
     let newResponse = checkNodesEqual(test.result, target.result, response);
     // We set flags for this properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
     newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
-    newResponse = removeAggregates(newResponse);
+    if (!newResponse.options?.keepAggregates) {
+        newResponse = removeAggregates(newResponse);
+    }
     return newResponse;
 }
 

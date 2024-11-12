@@ -11,6 +11,7 @@ export interface Fraction {
 export interface ChemistryOptions {
     allowPermutations?: boolean;
     allowScalingCoefficients?: boolean;
+    keepAggregates?: boolean;
 }
 
 export interface CheckerResponse {
@@ -57,10 +58,13 @@ export function mergeResponses(response1: CheckerResponse, response2: CheckerRes
     newResponse.isEqual = response1.isEqual && response2.isEqual;
     newResponse.typeMismatch = response1.typeMismatch || response2.typeMismatch;
     newResponse.sameCoefficient = response1.sameCoefficient && response2.sameCoefficient;
-    newResponse.sameState = response1.sameState && response2.sameState;
     newResponse.sameElements = response1.sameElements && response2.sameElements;
-    newResponse.sameBrackets = response1.sameBrackets && response2.sameBrackets;
-    newResponse.validAtomicNumber = response1.validAtomicNumber && response2.validAtomicNumber;
+    if (!response1.isNuclear) {
+        newResponse.sameState = response1.sameState && response2.sameState;
+        newResponse.sameBrackets = response1.sameBrackets && response2.sameBrackets;
+    } else {
+        newResponse.validAtomicNumber = response1.validAtomicNumber && response2.validAtomicNumber;
+    }
 
     return newResponse;
 }

@@ -1,6 +1,5 @@
-import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting } from "../../src/models/Nuclear";
+import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting, Result, ASTNode, augmentNode } from "../../src/models/Nuclear";
 import { CheckerResponse } from "../../src/models/common";
-const { checkNodesEqual } = exportedForTesting;
 
 const original = console.error;
 
@@ -17,30 +16,28 @@ afterEach(() => {
 // Generic response object
 const response: CheckerResponse = {
     containsError: false,
-    error: { message: "" },
     expectedType: "statement",
     receivedType: "statement",
     typeMismatch: false,
-    sameState: true,
     sameCoefficient: true,
     sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    options: {}
 }
 // Alternative response object
 const newResponse: CheckerResponse = {
     containsError: false,
-    error: { message: "" },
     expectedType: "statement",
     receivedType: "statement",
     typeMismatch: false,
-    sameState: true,
     sameCoefficient: true,
     sameElements: true,
     isBalanced: true,
     isEqual: true,
     isNuclear: true,
+    options: {}
 }
 
 const trueResponse: CheckerResponse = structuredClone(response);
@@ -81,13 +78,20 @@ const statement: Statement = {
     right: structuredClone(particleTerm),
 }
 
-describe("checkNodesEqual Particle", () => {
+function testCheck<T extends ASTNode>(target: T, test: T): CheckerResponse {
+    return check({result: augmentNode(target) as unknown as Result}, {result: augmentNode(test) as unknown as Result});
+}
+function unaugmentedTestCheck<T extends ASTNode>(target: T, test: T): CheckerResponse {
+    return check({result: target as unknown as Result}, {result: test as unknown as Result});
+}
+
+describe("testCheck Particle", () => {
     it("Returns truthy CheckerResponse when particles match",
         () => {
             // Act
             const particleCopy: Particle = structuredClone(particle)
 
-            const testResponse = checkNodesEqual(particleCopy, particle, structuredClone(response));
+            const testResponse = testCheck(particleCopy, particle);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -102,7 +106,7 @@ describe("checkNodesEqual Particle", () => {
             valueMismatch.mass = 0;
             valueMismatch.atomic = -1;
 
-            const elementIncorrect = checkNodesEqual(valueMismatch, particle, structuredClone(response));
+            const elementIncorrect = testCheck(valueMismatch, particle);
 
             // Assert
             expect(elementIncorrect.isEqual).toBeFalsy();
@@ -115,7 +119,7 @@ describe("checkNodesEqual Particle", () => {
             const nucleonMismatch: Particle = structuredClone(particle);
             nucleonMismatch.particle = "betaparticle";
 
-            const nucleonIncorrect = checkNodesEqual(nucleonMismatch, particle, structuredClone(response));
+            const nucleonIncorrect = testCheck(nucleonMismatch, particle);
 
             // Assert
             expect(nucleonIncorrect.isEqual).toBeFalsy();
@@ -124,13 +128,13 @@ describe("checkNodesEqual Particle", () => {
     );
 });
 
-describe("CheckNodesEqual Isotope", () => {
+describe("testCheck Isotope", () => {
     it("Returns truthy CheckerResponse when isotope match",
         () => {
             // Act
             const isotopeCopy: Isotope = structuredClone(isotope);
 
-            const testResponse = checkNodesEqual(isotopeCopy, isotope, structuredClone(response));
+            const testResponse = testCheck(isotopeCopy, isotope);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -144,7 +148,7 @@ describe("CheckNodesEqual Isotope", () => {
             elementMismatch.mass = 35;
             elementMismatch.atomic = 17;
 
-            const elementIncorrect = checkNodesEqual(elementMismatch, isotope, structuredClone(response));
+            const elementIncorrect = testCheck(elementMismatch, isotope);
 
             // Assert
             expect(elementIncorrect.isEqual).toBeFalsy();
@@ -156,7 +160,7 @@ describe("CheckNodesEqual Isotope", () => {
             const nucleonMismatch: Isotope = structuredClone(isotope);
             nucleonMismatch.element = "Cl";
 
-            const nucleonIncorrect = checkNodesEqual(nucleonMismatch, isotope, structuredClone(response));
+            const nucleonIncorrect = testCheck(nucleonMismatch, isotope);
 
             // Assert
             expect(nucleonIncorrect.isEqual).toBeFalsy();
@@ -165,12 +169,12 @@ describe("CheckNodesEqual Isotope", () => {
     );
 });
 
-describe("CheckNodesEqual Term", () => {
+describe("testCheck Term", () => {
     it("Returns truthy CheckerResponse when terms match",
         () => {
             let termCopy: Term = structuredClone(term);
 
-            let testResponse = checkNodesEqual(termCopy, term, structuredClone(response))
+            let testResponse = testCheck(termCopy, term)
             expect(testResponse.isEqual).toBeTruthy();
         }
     );
@@ -180,11 +184,11 @@ describe("CheckNodesEqual Term", () => {
             let mismatchTerm: Term = structuredClone(term);
             mismatchTerm.coeff = 3;
 
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(mismatchTerm, term, structuredClone(response)).sameCoefficient).toBeFalsy();
+            expect(testCheck(mismatchTerm, term).isEqual).toBeFalsy();
+            expect(testCheck(mismatchTerm, term).sameCoefficient).toBeFalsy();
 
             // Mismatched type
-            expect(checkNodesEqual(particleTerm, term, structuredClone(response)).isEqual).toBeFalsy();
+            expect(testCheck(particleTerm, term).isEqual).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
@@ -201,13 +205,11 @@ describe("CheckNodesEqual Term", () => {
             const particleCopyTerm: Term = structuredClone(particleTerm);
             particleCopyTerm.value = particleCopy;
 
-            const isotopeResponse = checkNodesEqual(isotopeError, isotope, structuredClone(response));
-            const particleResponse = checkNodesEqual(particleCopy, particle, structuredClone(response));
+            const isotopeResponse = testCheck(isotopeError, isotope);
+            const particleResponse = testCheck(particleCopy, particle);
 
-            const isotopeTermResponse =
-                checkNodesEqual(isotopeErrorTerm, term, structuredClone(response))
-            const particleTermResponse =
-                checkNodesEqual(particleCopyTerm, particleTerm, structuredClone(response))
+            const isotopeTermResponse = testCheck(isotopeErrorTerm, term)
+            const particleTermResponse = testCheck(particleCopyTerm, particleTerm)
 
             // Assert
             expect(isotopeTermResponse.validAtomicNumber).toBe(isotopeResponse.validAtomicNumber);
@@ -216,14 +218,14 @@ describe("CheckNodesEqual Term", () => {
     );
 });
 
-describe("CheckNodesEqual Expression", () => {
+describe("testCheck Expression", () => {
     it("Returns truthy CheckerResponse when expressions match",
         () => {
             // Act
             const permutedExpression: Expression = structuredClone(expression);
             permutedExpression.terms?.reverse;
 
-            const testResponse: CheckerResponse = checkNodesEqual(permutedExpression, expression, structuredClone(response));
+            const testResponse: CheckerResponse = testCheck(permutedExpression, expression);
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
         }
@@ -238,8 +240,8 @@ describe("CheckNodesEqual Expression", () => {
             if (termMismatch.terms) termMismatch.terms[1] = structuredClone(term);
 
             // Assert
-            expect(checkNodesEqual(lengthMismatch, expression, structuredClone(response)).isEqual).toBeFalsy();
-            expect(checkNodesEqual(termMismatch, expression, structuredClone(response)).isEqual).toBeFalsy();
+            expect(testCheck(lengthMismatch, expression).isEqual).toBeFalsy();
+            expect(testCheck(termMismatch, expression).isEqual).toBeFalsy();
         }
     );
     it("Returns an error if the AST is not augmented",
@@ -253,23 +255,21 @@ describe("CheckNodesEqual Expression", () => {
             }
 
             // Assert
-            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).containsError).toBeTruthy();
-            expect(checkNodesEqual(unaugmentedExpression, expression, structuredClone(response)).error).toEqual(
-                { message: "Received unaugmented AST during checking process." }
-            );
+            expect(unaugmentedTestCheck(unaugmentedExpression, expression).containsError).toBeTruthy();
+            expect(unaugmentedTestCheck(unaugmentedExpression, expression).error).toEqual("Received unaugmented AST during checking process.");
 
             expect(console.error).toHaveBeenCalled();
         }
     );
 });
 
-describe("CheckNodesEqual Statement", () => {
+describe("testCheck Statement", () => {
     it("Returns truthy CheckerResponse when expressions match",
         () => {
             // Act
             const copy: Statement = structuredClone(statement);
 
-            const copyResult: CheckerResponse = checkNodesEqual(copy, statement, structuredClone(response));
+            const copyResult: CheckerResponse = testCheck(copy, statement);
 
             // Assert
             expect(copyResult.isEqual).toBeTruthy();
@@ -283,7 +283,7 @@ describe("CheckNodesEqual Statement", () => {
             swappedExpressions.left = swappedExpressions.right;
             swappedExpressions.right = tempExpression;
 
-            const swapResult = checkNodesEqual(swappedExpressions, statement, structuredClone(response));
+            const swapResult = testCheck(swappedExpressions, statement);
 
             // Assert
             expect(swapResult.isEqual).toBeFalsy();
@@ -296,8 +296,8 @@ describe("CheckNodesEqual Statement", () => {
             balancedStatement.right = structuredClone(term);
 
             // Act
-            const balancedResponse = checkNodesEqual(balancedStatement, balancedStatement, structuredClone(response));
-            const unbalancedResponse = checkNodesEqual(statement, statement, structuredClone(response));
+            const balancedResponse = testCheck(balancedStatement, balancedStatement);
+            const unbalancedResponse = testCheck(statement, balancedStatement);
 
             // Assert
             expect(balancedResponse.isBalanced).toBeTruthy();
@@ -336,8 +336,8 @@ describe("Check", () => {
 
             const response: CheckerResponse = check(errorAST, ast);
             // Assert
-            expect(response.error).toBeDefined();
-            expect(response.error?.message).toBe("Sphinx of black quartz, judge my vow");
+            expect(response.containsError).toBeTruthy();
+            expect(response.error).toBe("Sphinx of black quartz, judge my vow");
             expect(response.expectedType).toBe("statement");
         }
     );
