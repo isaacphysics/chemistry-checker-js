@@ -1,4 +1,4 @@
-import { CheckerResponse, ChemicalSymbol, chemicalSymbol, ChemistryOptions, listComparison } from './common'
+import { CheckerResponse, ChemicalSymbol, chemicalSymbol, ChemistryOptions, listComparison, mergeResponses, removeAggregates } from './common'
 
 export type ParticleString = 'alphaparticle'|'betaparticle'|'gammaray'|'neutrino'|'antineutrino'|'electron'|'positron'|'neutron'|'proton';
 export type Type = 'error'|'particle'|'isotope'|'term'|'expr'|'statement';
@@ -78,7 +78,7 @@ function augmentNode<T extends ASTNode>(node: T): T {
             if(isExpression(node)) {
                 let terms: Term[] = [];
 
-                // Recursively augmentten
+                // Recursively augment
                 if (node.rest) {
                     const augmentedTerms: Expression | Term = augmentNode(node.rest);
 
@@ -117,8 +117,16 @@ function augmentNode<T extends ASTNode>(node: T): T {
 }
 
 export function augment(ast: NuclearAST): NuclearAST {
-    const augmentResult: Result = augmentNode(ast.result);
-    return { result: augmentResult };
+    if (ast) {
+        return { result: augmentNode(ast.result) };
+    } else {
+        return { result: {
+            type: 'error',
+            value: "The provided AST is empty.",
+            expected: [""],
+            loc: [0,0]
+        }};
+    }
 }
 
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
@@ -165,134 +173,169 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
     }
 }
 
+const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (options) => { return {
+    isNuclear: true,
+    containsError: false,
+    isEqual: true,
+    isBalanced: true,
+    typeMismatch: false,
+    sameCoefficient: true,
+    sameElements: true,
+    validAtomicNumber: true,
+    options: options ?? {},
+} };
+
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
-        response.isEqual = response.isEqual &&
-            checkParticlesEqual(test, target) &&
-            isValidAtomicNumber(test);
-        response.validAtomicNumber = isValidAtomicNumber(test);
-
-        if (response.nucleonCount) {
-            response.nucleonCount = [
-                response.nucleonCount[0] + test.atomic,
-                response.nucleonCount[1] + test.mass
-            ];
-        } else {
-            response.nucleonCount = [test.atomic, test.mass];
-        }
-
-        return response;
-    } else if (isIsotope(test) && isIsotope(target)) {
-        response.isEqual = response.isEqual &&
-            test.element === target.element &&
-            isValidAtomicNumber(test);
-        response.validAtomicNumber = isValidAtomicNumber(test);
-
-        if (response.nucleonCount) {
-            response.nucleonCount = [
-                response.nucleonCount[0] + test.atomic,
-                response.nucleonCount[1] + test.mass
-            ];
-        } else {
-            response.nucleonCount = [test.atomic, test.mass];
-        }
-
-        return response;
-    } else if (isTerm(test) && isTerm(target)) {
-        if ((test.isParticle && !target.isParticle) ||
-            (!test.isParticle && target.isParticle)) {
+        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
+        if (test.mass === null || test.atomic === null) {
+            response.containsError = true;
+            response.error = "Check that all atoms have a mass and atomic number!"
             response.isEqual = false;
             return response;
         }
 
-        const newResponse = checkNodesEqual(test.value, target.value, response);
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
+        response.sameElements = response.sameElements && checkParticlesEqual(test, target);
+        response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
-        newResponse.isEqual = newResponse.isEqual &&
-            test.coeff === target.coeff;
+        // Add the term's nucleon counts to the term's nucleon count
+        if (response.termNucleonCount) {
+            response.termNucleonCount = [
+                response.termNucleonCount[0] + test.atomic,
+                response.termNucleonCount[1] + test.mass
+            ];
+        } else {
+            response.termNucleonCount = [test.atomic, test.mass];
+        }
+
+        return response;
+    } else if (isIsotope(test) && isIsotope(target)) {
+        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
+        if (test.mass === null || test.atomic === null) {
+            response.containsError = true;
+            response.error = "Check that all atoms have a mass and atomic number!"
+            response.isEqual = false;
+            return response;
+        }
+
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && test.mass === target.mass && test.atomic === target.atomic;
+        response.sameElements = response.sameElements && test.element === target.element;
+        response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
+
+        // Add the term's nucleon counts to the term's nucleon count
+        if (response.termNucleonCount) {
+            response.termNucleonCount = [
+                response.termNucleonCount[0] + test.atomic,
+                response.termNucleonCount[1] + test.mass
+            ];
+        } else {
+            response.termNucleonCount = [test.atomic, test.mass];
+        }
+
+        return response;
+    } else if (isTerm(test) && isTerm(target)) {
+        // If we have a particle-atom mismatch, the elements are not equivalent
+        if (test.isParticle !== target.isParticle) {
+            response.sameElements = false;
+            response.isEqual = false;
+        }
+
+        const newResponse = checkNodesEqual(test.value, target.value, response);
+        // Set a flag for sameCoefficient here, but apply the isEqual check at the end (because of listComparison)
         newResponse.sameCoefficient = test.coeff === target.coeff;
 
+        // Add the term's nucleon counts to the overall expression nucleon count
         if (newResponse.nucleonCount) {
             newResponse.nucleonCount = [
-                newResponse.nucleonCount[0] * test.coeff,
-                newResponse.nucleonCount[1] * test.coeff,
+                newResponse.nucleonCount[0] + (newResponse.termNucleonCount ?? [0,0])[0] * test.coeff,
+                newResponse.nucleonCount[1] + (newResponse.termNucleonCount ?? [0,0])[1] * test.coeff,
             ]
         }
 
         return newResponse;
     } else if (isExpression(test) && isExpression(target)) {
         if (test.terms && target.terms) {
+            // If the number of terms in the expression is wrong, there is no way they can be equivalent
             if (test.terms.length !== target.terms.length) {
-                // fail early if molecule lengths not the same
+                response.sameElements = false;
                 response.isEqual = false;
-                return response;
             }
 
             return listComparison(test.terms, target.terms, response, checkNodesEqual);
         } else {
             console.error("[server] Encountered unaugmented AST. Returning error");
             response.containsError = true;
-            response.error = { message: "Received unaugmented AST during checking process." };
+            response.error = "Received unaugmented AST during checking process.";
             return response;
         }
     } else if (isStatement(test) && isStatement(target)) {
-        const leftResponse = checkNodesEqual(test.left, target.left, response);
-        const leftNucleonCount = leftResponse.nucleonCount;
-        leftResponse.nucleonCount = [0, 0];
+        // Determine responses for both the left and right side of the statement
+        const leftResponse = checkNodesEqual(test.left, target.left, response); 
+        let rightResponse = STARTING_RESPONSE(leftResponse.options);
+        rightResponse = checkNodesEqual(test.right, target.right, leftResponse);
 
-        const finalResponse = checkNodesEqual(test.right, target.right, leftResponse);
+        // Merge the responses so that the final response contains all the information
+        const finalResponse = mergeResponses(leftResponse, rightResponse);
 
-        finalResponse.isBalanced = leftNucleonCount && finalResponse.nucleonCount ?
-            leftNucleonCount[0] === finalResponse.nucleonCount[0] &&
-            leftNucleonCount[1] === finalResponse.nucleonCount[1] :
-            false;
-        finalResponse.balancedAtom = leftNucleonCount && finalResponse.nucleonCount ?
-            leftNucleonCount[0] === finalResponse.nucleonCount[0] :
-            false;
-        finalResponse.balancedMass = leftNucleonCount && finalResponse.nucleonCount ?
-            leftNucleonCount[1] === finalResponse.nucleonCount[1] :
-            false;
+        // Nuclear question balance is determined by atom/mass count equality
+        finalResponse.balancedAtom = leftResponse.nucleonCount && rightResponse.nucleonCount ?
+            leftResponse.nucleonCount[0] === rightResponse.nucleonCount[0] : false;
+        finalResponse.balancedMass = leftResponse.nucleonCount && rightResponse.nucleonCount ?
+            leftResponse.nucleonCount[1] === rightResponse.nucleonCount[1] : false;
+        finalResponse.isBalanced = leftResponse.nucleonCount && rightResponse.nucleonCount ?
+            finalResponse.balancedAtom && finalResponse.balancedMass : false;
+        finalResponse.isEqual = finalResponse.isEqual && finalResponse.isBalanced;
 
         return finalResponse
     } else {
+        // There was a type mismatch
+        response.sameElements = false;
         response.isEqual = false;
-        return response;
+        // We must still check the children of the node to get a complete nucleon count
+        if (test.type == "error") {
+            response.containsError = true;
+            response.error = "Error type encountered during checking process.";
+            return response;
+        } else {
+            return checkNodesEqual(test, test, response);
+        }
     }
 }
 
 export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    const response = {
-        containsError: false,
-        error: { message: "" },
-        expectedType: target.result.type,
-        receivedType: test.result.type,
-        typeMismatch: false,
-        sameState: true,
-        sameCoefficient: true,
-        sameElements: true,
-        isBalanced: true,
-        isEqual: true,
-        isNuclear: true,
-    }
+    const response = STARTING_RESPONSE();
+    response.expectedType = target.result.type;
+    response.receivedType = test.result.type;
+
     // Return shortcut response
-    if (target.result.type === "error" || test.result.type === "error") {
+    if (test.result.type === "error") {
         const message =
             isParseError(target.result) ?
                 target.result.value :
                 (isParseError(test.result) ? test.result.value : "No error found");
 
         response.containsError = true;
-        response.error = { message: message };
+        response.error = message;
         response.isEqual = false;
         return response;
-   }
+    }
+    if (target.result.type === "error") {
+        // If the target (provided answer in Content) is a syntax error and the student's answer does not match it exactly,
+        // then we cannot check further and the student's answer is assumed incorrect
+        response.isEqual = false;
+        return response;
+    }
     if (test.result.type !== target.result.type) {
         response.typeMismatch = true;
         response.isEqual = false;
         return response;
     }
 
-    const newResponse = checkNodesEqual(test.result, target.result, response);
-    delete newResponse.nucleonCount;
+    let newResponse = checkNodesEqual(test.result, target.result, response);
+    // We set flags for this properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient;
+    newResponse = removeAggregates(newResponse);
     return newResponse;
 }
 
