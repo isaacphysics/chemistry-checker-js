@@ -271,6 +271,20 @@ describe("checkNodesEqual Compounds", () => {
             expect(testResponse.termAtomCount?.O).toBe(1)
         }
     );
+    it("Returns truthy CheckerResponse when a permutation of compounds match with allowPermutations",
+        () => {
+            // Act
+            const permutedCompound: Compound = structuredClone(compound);
+            permutedCompound.elements?.reverse;
+            
+            const permutationsResponse = { ...response, options: {...options, allowPermutations: true} };
+
+            const testResponse = checkNodesEqual(augmentNode(permutedCompound), augmentNode(structuredClone(compound)), permutationsResponse);
+
+            // Assert
+            expect(testResponse.isEqual).toBeTruthy();
+        }
+    );
     it("Returns falsy CheckerResponse when compounds don't match",
         () => {
             // Act
@@ -349,6 +363,21 @@ describe("CheckNodesEqual Ions", () => {
             expect(testResponse.chargeCount).toBe(0);
         }
     );
+    it("Returns truthy CheckerResponse when a permutation of ions match with allowPermutations",
+        () => {
+            // Act
+            const permutedIon: Ion = augmentNode(structuredClone(ion));
+            permutedIon.molecules?.reverse;
+
+            const permutationsResponse = { ...response, options: {...options, allowPermutations: true} };
+
+            const testResponse = checkNodesEqual(permutedIon, augmentNode(structuredClone(ion)), permutationsResponse);
+
+            // Assert
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.chargeCount).toBe(0);
+        }
+    );
     it("Returns falsy CheckerResponse when ions do not match",
         () => {
             const moleculeMismatch: Ion = augmentNode(structuredClone(ion));
@@ -404,42 +433,58 @@ describe("CheckNodesEqual Ions", () => {
 
 describe("CheckNodesEqual Term", () => {
     // TODO: Separate into different tests
-    it("Returns truthy CheckerResponse when terms match",
+    it("Returns truthy CheckerResponse when terms match with  allowScalingCoefficients", 
         () => {
-            const scaledResponse = { ...response, options: { ...options, allowScalingCoefficients: true } };
+            // Act
+            const scaledResponse = { ...response, options: { ...options, allowScalingCoefficients: true } };        
 
-            // Scalar multiple coefficient
-            let perturbedTerm: Term = augmentNode(structuredClone(term));
+            const perturbedTerm: Term = augmentNode(structuredClone(term));
             perturbedTerm.coeff = { numerator: 6, denominator: 4 };
 
-            let testResponse = checkNodesEqual(perturbedTerm, augmentNode(structuredClone(term)), scaledResponse);
+            const testResponse = checkNodesEqual(perturbedTerm, augmentNode(structuredClone(term)), scaledResponse);
+
+            // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameState).toBeTruthy();
             expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 2});
+        }
+    );
+    it("Returns truthy CheckerResponse when terms have equal states", 
+        () => {
+            // Act
+            const stateTerm = augmentNode(structuredClone(term));
+            stateTerm.state = "(aq)";
+            let stateTermCopy: Term = augmentNode(structuredClone(stateTerm));
 
-            // Term with a state
-            perturbedTerm = augmentNode(structuredClone(term));
-            perturbedTerm.state = "(aq)";
-            let termCopy: Term = augmentNode(structuredClone(perturbedTerm));
+            const testResponse = checkNodesEqual(stateTerm, stateTermCopy, structuredClone(response))
 
-            testResponse = checkNodesEqual(perturbedTerm, termCopy, structuredClone(response))
+            // Assert
             expect(testResponse.isEqual).toBeTruthy();
             expect(testResponse.sameState).toBeTruthy();
+        }
+    );
+    it("Returns truthy CheckerResponse when terms has equal hydrates", 
+        () => {
+            // Act
+            const hydratedTerm = augmentNode(structuredClone(term));
+            hydratedTerm.isHydrate = true;
+            hydratedTerm.hydrate = 7;
+            const hydratedTermCopy = structuredClone(hydratedTerm);
 
-            // Hydrate term
-            perturbedTerm = augmentNode(structuredClone(term));
-            termCopy.isHydrate = true;
-            termCopy.hydrate = 7;
-            termCopy = structuredClone(perturbedTerm);
+            // Assert
+            expect(checkNodesEqual(hydratedTermCopy, hydratedTerm, structuredClone(response)).isEqual).toBeTruthy();
+        }
+    );
+    it("Returns truthy CheckerResponse when electron terms match",
+        () => {
+            // Act
+            const electronTerm = augmentNode(structuredClone(term));
+            electronTerm.isElectron = true
+            electronTerm.value = { type: "electron" }
+            const electronTermCopy = structuredClone(electronTerm);
 
-            expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
-
-            // Electron
-            perturbedTerm = augmentNode(structuredClone(term));
-            perturbedTerm.isElectron = true
-            perturbedTerm.value = { type: "electron" }
-            termCopy = structuredClone(perturbedTerm);
-            expect(checkNodesEqual(termCopy, perturbedTerm, structuredClone(response)).isEqual).toBeTruthy();
+            // Assert
+            expect(checkNodesEqual(electronTermCopy, electronTerm, structuredClone(response)).isEqual).toBeTruthy();
         }
     );
     it("Returns falsy CheckerResponse when terms don't match",
