@@ -7,7 +7,7 @@ export type Arrow = 'SArr'|'DArr';
 export type Molecule = Element | Compound;
 export type Result = Statement | Expression | Term | ParseError;
 
-interface ASTNode {
+export interface ASTNode {
     type: Type;
 }
 
@@ -111,7 +111,7 @@ export interface ChemAST {
     result: Result;
 }
 
-const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
+export const STARTING_COEFFICIENT: Fraction = { numerator: 0, denominator: 1 };
 const EQUAL_COEFFICIENT: Fraction = { numerator: 1, denominator: 1 };
 
 const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: Fraction) => CheckerResponse = (options, coefficientScalingValue) => { return {
@@ -493,7 +493,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         }
 
         newResponse.sameState = newResponse.sameState && test.state === target.state;
-        // TODO: add a new property stating the hydrate was wrong?
+        newResponse.sameHydrate = newResponse.sameHydrate && test.isHydrate === target.isHydrate && test.hydrate === target.hydrate;
 
         // Add the term's atomCount (* coefficient) to the overall expression atomCount
         if (newResponse.termAtomCount) {
@@ -579,6 +579,10 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
+    if (isEqual(test.result, target.result) && !options.keepAggregates) {
+        return response;
+    }
+
     // Return shortcut response
     if (test.result.type === "error") {
         const message =
@@ -605,9 +609,11 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
 
     let newResponse = checkNodesEqual(test.result, target.result, response);
     // We set flags for these properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
-    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState == true) && (newResponse.sameBrackets == true);
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState === true) && (newResponse.sameBrackets === true) && (newResponse.sameHydrate === true);
 
-    newResponse = removeAggregates(newResponse);
+    if (!newResponse.options?.keepAggregates) {
+        newResponse = removeAggregates(newResponse);
+    }
     return newResponse;
 }
 
