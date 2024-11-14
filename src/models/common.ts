@@ -24,6 +24,7 @@ export interface CheckerResponse {
     sameElements: boolean;
     // properties dependent on type
     sameState?: boolean;
+    sameHydrate?: boolean;
     sameCharge?: boolean;
     sameArrow?: boolean;
     sameBrackets?: boolean;
