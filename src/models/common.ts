@@ -61,6 +61,8 @@ export function mergeResponses(response1: CheckerResponse, response2: CheckerRes
     newResponse.sameCoefficient = response1.sameCoefficient && response2.sameCoefficient;
     newResponse.sameElements = response1.sameElements && response2.sameElements;
     if (!response1.isNuclear) {
+        newResponse.sameCharge = response1.sameCharge && response2.sameCharge;
+        newResponse.sameHydrate = response1.sameHydrate && response2.sameHydrate;
         newResponse.sameState = response1.sameState && response2.sameState;
         newResponse.sameBrackets = response1.sameBrackets && response2.sameBrackets;
     } else {
@@ -128,13 +130,14 @@ export function listComparison<T>(
             returnResponse.isEqual = false;
 
             // Attach actual aggregate values
+            returnResponse.bracketChargeCount = aggregatesResponse.bracketChargeCount;
+            returnResponse.termChargeCount = aggregatesResponse.termChargeCount;
             returnResponse.chargeCount = aggregatesResponse.chargeCount;
             returnResponse.bracketAtomCount = aggregatesResponse.bracketAtomCount;
             returnResponse.termAtomCount = aggregatesResponse.termAtomCount;
             returnResponse.atomCount = aggregatesResponse.atomCount;
-            if (aggregatesResponse.nucleonCount) {
-                returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
-            }
+            returnResponse.termNucleonCount = aggregatesResponse.termNucleonCount;
+            returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
 
             return returnResponse;
         }

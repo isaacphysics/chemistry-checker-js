@@ -226,7 +226,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test) && (response.sameElements ? test.mass === target.mass && test.atomic === target.atomic : true);
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
-        // Add the term's nucleon counts to the term's nucleon count
+        // Add the isotope's nucleon counts to the term's nucleon count
         if (response.termNucleonCount) {
             response.termNucleonCount = [
                 response.termNucleonCount[0] + test.atomic,
