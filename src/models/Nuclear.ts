@@ -198,7 +198,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             return response;
         }
 
-        response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
+        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
         response.sameElements = response.sameElements && checkParticlesEqual(test, target);
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
