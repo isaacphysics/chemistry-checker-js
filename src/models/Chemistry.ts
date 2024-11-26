@@ -121,6 +121,7 @@ const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: 
     isEqual: true,
     typeMismatch: false,
     sameCoefficient: true,
+    sameHydrate: true,
     sameElements: true,
     sameState: true,
     sameCharge: true,
@@ -426,7 +427,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
                 const newResponse = checkNodesEqual(test[0], target[0], response);
                 newResponse.sameCharge = newResponse.sameCharge && test[1] === target[1];
-                newResponse.isEqual = newResponse.isEqual && (newResponse.sameCharge === true);
+                newResponse.isEqual = newResponse.isEqual && (newResponse.sameCharge ?? true);
                 
                 if (!test[0].bracketed) {
                     // If not bracketed, add the charge directly to the chargeCount of the term
@@ -609,7 +610,7 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
 
     let newResponse = checkNodesEqual(test.result, target.result, response);
     // We set flags for these properties in checkNodesEqual, but we only apply the isEqual check here due to listComparison
-    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState === true) && (newResponse.sameBrackets === true) && (newResponse.sameHydrate === true);
+    newResponse.isEqual = newResponse.isEqual && newResponse.sameCoefficient && (newResponse.sameState ?? true) && (newResponse.sameBrackets ?? true) && (newResponse.sameHydrate ?? true);
 
     if (!newResponse.options?.keepAggregates) {
         newResponse = removeAggregates(newResponse);
