@@ -124,7 +124,6 @@ const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: 
     sameHydrate: true,
     sameElements: true,
     sameState: true,
-    sameHydrate: true,
     sameCharge: true,
     sameArrow: true,
     sameBrackets: true,

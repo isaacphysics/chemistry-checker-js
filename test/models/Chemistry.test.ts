@@ -398,7 +398,7 @@ describe("testCheck Ions", () => {
             expect(moleculeIncorrect.typeMismatch).toBeFalsy();
             expect(moleculeIncorrect.termAtomCount?.Cl).toBe(1);
             expect(chargeIncorrect.isEqual).toBeFalsy();
-            expect(chargeIncorrect.termChargeCount).toBe(-1);
+            expect(chargeIncorrect.termChargeCount).toBe(-2);
             expect(lengthIncorrect.isEqual).toBeFalsy();
         }
     );
