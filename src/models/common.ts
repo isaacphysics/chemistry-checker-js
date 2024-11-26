@@ -61,6 +61,8 @@ export function mergeResponses(response1: CheckerResponse, response2: CheckerRes
     newResponse.sameCoefficient = response1.sameCoefficient && response2.sameCoefficient;
     newResponse.sameElements = response1.sameElements && response2.sameElements;
     if (!response1.isNuclear) {
+        newResponse.sameCharge = response1.sameCharge && response2.sameCharge;
+        newResponse.sameHydrate = response1.sameHydrate && response2.sameHydrate;
         newResponse.sameState = response1.sameState && response2.sameState;
         newResponse.sameBrackets = response1.sameBrackets && response2.sameBrackets;
     } else {
