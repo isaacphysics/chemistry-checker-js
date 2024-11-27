@@ -1,4 +1,4 @@
-import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, listComparison, mergeResponses, MultFrac, removeAggregates } from './common'
+import { AddFrac, CheckerResponse, ChemicalSymbol, ChemistryOptions, Fraction, linearComparison, listComparison, mergeResponses, MultFrac, removeAggregates } from './common'
 import isEqual from "lodash/isEqual";
 
 export type Type = 'error'|'element'|'bracket'|'compound'|'ion'|'term'|'expr'|'statement'|'electron';
@@ -385,6 +385,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                         response.isEqual = false;
                     }
                 }
+
+                return linearComparison(test.elements, target.elements, response, checkNodesEqual);
             } 
 
             // If permutations are allowed, we instead compare the atomCounts of the elements
@@ -392,8 +394,8 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 const permutationResponse = structuredClone(response);
                 permutationResponse.checkingPermutations = true;
 
-                const testResponse = listComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
-                const targetResponse = listComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
+                const testResponse = linearComparison(test.elements, test.elements, permutationResponse, checkNodesEqual);
+                const targetResponse = linearComparison(target.elements, target.elements, permutationResponse, checkNodesEqual);
 
                 response.isEqual = response.isEqual && isEqual(testResponse.atomCount, targetResponse.atomCount) && isEqual(testResponse.termAtomCount, targetResponse.termAtomCount);
                 return response
@@ -410,20 +412,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isIon(test) && isIon(target)) {
         if (test.molecules && target.molecules) {
-            // If permutations are disallowed, we can attempt to directly compare the elements at this level
-            if (!response.options?.allowPermutations) {
-                if (!isEqual(test, target)) {
-                    if (test.molecules.length !== target.molecules.length) {
-                        // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
-                        response.sameElements = false;
-                        response.isEqual = false;
-                    }
-                    else {
-                        response.isEqual = false;
-                    }
-                }
-            } 
-
             const comparator = (test: [Molecule, number], target: [Molecule, number], response: CheckerResponse): CheckerResponse => {
                 const newResponse = checkNodesEqual(test[0], target[0], response);
                 newResponse.sameCharge = newResponse.sameCharge && test[1] === target[1];
@@ -447,6 +435,22 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
                 }
             
                 return newResponse;
+            }
+
+            // If permutations are disallowed, we can attempt to directly compare the elements at this level
+            if (!response.options?.allowPermutations) {
+                if (!isEqual(test, target)) {
+                    if (test.molecules.length !== target.molecules.length) {
+                        // TODO: Implement special cases for certain permutations e.g. reverse of an ion chain
+                        response.sameElements = false;
+                        response.isEqual = false;
+                    }
+                    else {
+                        response.isEqual = false;
+                    }
+                }
+
+                return linearComparison(test.molecules, target.molecules, response, comparator);
             }
 
             // Check all permutations of the ion chain until we get a match
@@ -562,7 +566,6 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return finalResponse;
     } else {
         // There was a type mismatch
-        response.sameElements = false;
         response.isEqual = false;
         // We must still check the children of the node to get complete aggregate counts
         if (test.type == "error") {

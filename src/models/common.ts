@@ -84,18 +84,37 @@ export function removeAggregates(response: CheckerResponse): CheckerResponse {
     return response;
 }
 
+export function linearComparison<T>(
+    testList: T[],
+    targetList: T[],
+    response: CheckerResponse,
+    comparator: (test: T, target: T, response: CheckerResponse) => CheckerResponse
+): CheckerResponse {
+    let possibleResponse = structuredClone(response);
+
+    if (testList.length !== targetList.length) {
+        possibleResponse.sameElements = false;
+        possibleResponse.isEqual = false;
+        return possibleResponse;
+    }
+
+    for (let i = 0; i < testList.length; i++) {
+        possibleResponse = comparator(testList[i], targetList[i], structuredClone(possibleResponse));
+    }
+
+    return possibleResponse;
+}
+
 export function listComparison<T>(
     testList: T[],
     targetList: T[],
     response: CheckerResponse,
     comparator: (test: T, target: T, response: CheckerResponse) => CheckerResponse
 ): CheckerResponse {
-    // TODO: look at a more efficient method of comparison
     const indices: number[] = []; // the indices on which a match was made
     let possibleResponse = structuredClone(response);
 
     // Get aggregates
-    // TODO: discuss and see if a better solution exists
     let aggregatesResponse = structuredClone(response);
     for (let item of testList) {
         // This will always pass, this is to get the accurate aggregate bookkeeping values
