@@ -566,6 +566,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         return finalResponse;
     } else {
         // There was a type mismatch
+        response.typeMismatch = true;
         response.isEqual = false;
         // We must still check the children of the node to get complete aggregate counts
         if (test.type == "error") {
