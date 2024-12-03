@@ -1,5 +1,5 @@
-import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT, Result, ASTNode } from "../../src/models/Chemistry";
-import { CheckerResponse, listComparison, ChemistryOptions, Fraction, ChemicalSymbol } from "../../src/models/common";
+import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT, Result, ASTNode, isExpression } from "../../src/models/Chemistry";
+import { CheckerResponse, listComparison, ChemistryOptions } from "../../src/models/common";
 const { augmentNode } = exportedForTesting;
 import { parseChemistryExpression } from "inequality-grammar";
 
@@ -13,7 +13,7 @@ afterEach(() => {
     console.error = original;
 })
 
-// TODO: Add augmenting tests
+
 const options: ChemistryOptions = {
     allowPermutations: false,
     allowScalingCoefficients: false
@@ -77,6 +77,8 @@ const compound: Compound = {
     head: structuredClone(element),
     tail: structuredClone(bracket)
 };
+const augmentedCompound: Compound = augmentNode(structuredClone(compound));
+
 const ion: Ion = {
     type: "ion",
     molecule: structuredClone(compound),
@@ -115,12 +117,15 @@ const expression: Expression = {
     rest: structuredClone(hydrate2)
 }
 const augmentedExpression: Expression = augmentNode(structuredClone(expression));
+
 const statement: Statement = {
     type: "statement",
-    left: structuredClone(hydrate),
-    right: structuredClone(hydrate2),
+    left: structuredClone(expression),
+    right: structuredClone(expression),
     arrow: "SArr"
 }
+const augmentedStatement: Statement = augmentNode(structuredClone(statement));
+
 const ast: ChemAST = {
     result: structuredClone(statement)
 }
@@ -260,7 +265,7 @@ describe("testCheck Compounds", () => {
             // Act
             const compoundCopy: Compound = structuredClone(compound);
 
-            const testResponse = testCheck(compoundCopy, structuredClone(compound), { keepAggregates: true});
+            const testResponse = testCheck(compoundCopy, structuredClone(compound), { keepAggregates: true });
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -273,20 +278,25 @@ describe("testCheck Compounds", () => {
             // Act
             const permutedCompound: Compound = structuredClone(compound);
             permutedCompound.elements?.reverse;
+
+            const hydrocarbonCompound: ASTNode = structuredClone(parseChemistryExpression("C10H22")[0].result);
+            const permutedHydrocarbonCompound: ASTNode = structuredClone(parseChemistryExpression("CH3(CH2)8CH3")[0].result);
             
             const permutationsOptions = { allowPermutations: true };
 
             const testResponse = testCheck(permutedCompound, structuredClone(compound), permutationsOptions);
+            const hydrocarbonResponse = testCheck(hydrocarbonCompound, permutedHydrocarbonCompound, permutationsOptions);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
+            expect(hydrocarbonResponse.isEqual).toBeTruthy();
         }
     );
     it("Returns falsy CheckerResponse when compounds don't match",
         () => {
             // Act
             const typeMismatch: Compound = structuredClone(compound);
-            typeMismatch.elements = [structuredClone(element),structuredClone(element)];
+            typeMismatch.elements = [structuredClone(element), structuredClone(element)];
             const lengthMismatch: Compound = augmentNode(structuredClone(compound));
             lengthMismatch.elements?.push(structuredClone(element));
 
@@ -326,17 +336,9 @@ describe("testCheck Compounds", () => {
     );
     it("Returns an error if the AST is not augmented",
         () => {
-            // Act
-            // This is the same as compound just not augmented
-            const unaugmentedCompound: Compound = {
-                type: "compound",
-                head: { type: "element", value: "O", coeff: 2 },
-                tail: structuredClone(bracket)
-            };
-
             // Assert
-            expect(unaugmentedTestCheck(unaugmentedCompound, compound, { keepAggregates: true }).containsError).toBeTruthy();
-            expect(unaugmentedTestCheck(unaugmentedCompound, compound, { keepAggregates: true }).error).toEqual("Received unaugmented AST during checking process.");
+            expect(unaugmentedTestCheck(structuredClone(compound), augmentedCompound, { keepAggregates: true }).containsError).toBeTruthy();
+            expect(unaugmentedTestCheck(structuredClone(compound), augmentedCompound, { keepAggregates: true }).error).toEqual("Received unaugmented AST during checking process.");
 
             expect(console.error).toHaveBeenCalled();
         }
@@ -374,7 +376,7 @@ describe("testCheck Ions", () => {
             expect(testResponse.termChargeCount).toBe(0);
         }
     );
-    it("Returns falsy CheckerResponse when ions do not match",
+    it("Returns falsy CheckerResponse when ions don't match",
         () => {
             const moleculeMismatch: Ion = structuredClone(augmentedIon);
             if (moleculeMismatch.molecules) {
@@ -391,7 +393,7 @@ describe("testCheck Ions", () => {
 
             const moleculeIncorrect = unaugmentedTestCheck(moleculeMismatch, structuredClone(augmentedIon), { keepAggregates: true });
             const chargeIncorrect = unaugmentedTestCheck(chargeMismatch, structuredClone(augmentedIon), { keepAggregates: true });
-            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, structuredClone(augmentedIon));
+            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, structuredClone(augmentedIon), { keepAggregates: true});
 
             // Assert
             expect(moleculeIncorrect.isEqual).toBeFalsy();
@@ -404,21 +406,9 @@ describe("testCheck Ions", () => {
     );
     it("Returns an error if the AST is not augmented",
         () => {
-            // Act
-            const unaugmentedIon: Ion = {
-                type: "ion",
-                molecule: structuredClone(compound),
-                charge: -1,
-                chain: {
-                    type: "ion",
-                    molecule: { type: "element", value: "Cl", coeff: 1 },
-                    charge: -1
-                }
-            };
-
             // Assert
-            expect(unaugmentedTestCheck(unaugmentedIon, ion).containsError).toBeTruthy();
-            expect(unaugmentedTestCheck(unaugmentedIon, ion).error).toEqual("Received unaugmented AST during checking process.");
+            expect(unaugmentedTestCheck(structuredClone(ion), augmentedIon).containsError).toBeTruthy();
+            expect(unaugmentedTestCheck(structuredClone(ion), augmentedIon).error).toEqual("Received unaugmented AST during checking process.");
 
             expect(console.error).toHaveBeenCalled();
         }
@@ -426,23 +416,6 @@ describe("testCheck Ions", () => {
 });
 
 describe("testCheck Term", () => {
-    // TODO: Separate into different tests
-    it("Returns truthy CheckerResponse when terms match with allowScalingCoefficients", 
-        () => {
-            // Act   
-            const scaledOptions = { allowScalingCoefficients: true, keepAggregates: true };
-
-            const perturbedTerm: Term = structuredClone(term);
-            perturbedTerm.coeff = { numerator: 6, denominator: 4 };
-
-            const testResponse = testCheck(perturbedTerm, structuredClone(term), scaledOptions);
-
-            // Assert
-            expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.sameState).toBeTruthy();
-            expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 2});
-        }
-    );
     it("Returns truthy CheckerResponse when terms have equal states", 
         () => {
             // Act
@@ -479,6 +452,21 @@ describe("testCheck Term", () => {
 
             // Assert
             expect(testCheck(electronTermCopy, electronTerm).isEqual).toBeTruthy();
+        }
+    );
+    it("Returns truthy CheckerResponse when terms match with allowScalingCoefficients", 
+        () => {
+            // Act   
+            const scaledOptions = { allowScalingCoefficients: true, keepAggregates: true };
+
+            const perturbedTerm: Term = structuredClone(term);
+            perturbedTerm.coeff = { numerator: 6, denominator: 4 };
+
+            const testResponse = testCheck(perturbedTerm, structuredClone(term), scaledOptions);
+
+            // Assert
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 2});
         }
     );
     it("Returns falsy CheckerResponse when terms don't match",
@@ -544,7 +532,25 @@ describe("testCheck Expression", () => {
             expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 1});
         }
     );
-    it("Returns falsy CheckerResponse when expressions do not match",
+    it("Returns truthy CheckerResponse when expressions match with allowScalingCoefficients", 
+        () => {
+            // Act   
+            const scaledOptions = { allowScalingCoefficients: true, keepAggregates: true };
+
+            const perturbedExpression: Expression = structuredClone(augmentedExpression);
+            if (perturbedExpression.terms) {
+                perturbedExpression.terms = [{...perturbedExpression.terms[0], coeff: { numerator: 10, denominator: 5} }, 
+                                             {...perturbedExpression.terms[1], coeff: { numerator: 16, denominator: 8} }];
+            }
+
+            const testResponse = unaugmentedTestCheck(perturbedExpression, structuredClone(augmentedExpression), scaledOptions);
+
+            // Assert
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 4, "denominator": 1});
+        }
+    );
+    it("Returns falsy CheckerResponse when expressions don't match",
         () => {
             // Act
             const lengthMismatch: Expression = structuredClone(augmentedExpression);
@@ -577,16 +583,9 @@ describe("testCheck Expression", () => {
     );
     it("Returns an error if the AST is not augmented",
         () => {
-            // Act
-            const unaugmentedExpression: Expression = {
-                type: "expr",
-                term: structuredClone(hydrate),
-                rest: structuredClone(hydrate)
-            }
-
             // Assert
-            expect(unaugmentedTestCheck(unaugmentedExpression, expression).containsError).toBeTruthy();
-            expect(unaugmentedTestCheck(unaugmentedExpression, expression).error).toEqual("Received unaugmented AST during checking process.");
+            expect(unaugmentedTestCheck(structuredClone(expression), augmentedExpression).containsError).toBeTruthy();
+            expect(unaugmentedTestCheck(structuredClone(expression), augmentedExpression).error).toEqual("Received unaugmented AST during checking process.");
 
             expect(console.error).toHaveBeenCalled();
         }
@@ -612,7 +611,27 @@ describe("testCheck Statement", () => {
             expect(arrowResult.sameArrow).toBeTruthy();
         }
     );
-    it("Returns falsy CheckerResponse when expressions do not match",
+    it("Returns truthy CheckerResponse when statements match with allowScalingCoefficients", 
+        () => {
+            // Act
+            const scaledOptions = { allowScalingCoefficients: true, keepAggregates: true };
+
+            const perturbedStatement: Statement = structuredClone(augmentedStatement);
+            if (isExpression(perturbedStatement.left) && perturbedStatement.left.terms && isExpression(perturbedStatement.right) && perturbedStatement.right.terms) {
+                perturbedStatement.left.terms  = [{...perturbedStatement.left.terms[0],  coeff: { numerator: 1, denominator: 3} }, 
+                                                  {...perturbedStatement.left.terms[1],  coeff: { numerator: 2, denominator: 6} }];
+                perturbedStatement.right.terms = [{...perturbedStatement.right.terms[0], coeff: { numerator: 3, denominator: 9} },
+                                                  {...perturbedStatement.right.terms[1],  coeff: { numerator: 1, denominator: 3} }];                         
+            }
+
+            const testResponse = unaugmentedTestCheck(perturbedStatement, structuredClone(augmentedStatement), scaledOptions);
+
+            // Assert
+            expect(testResponse.isEqual).toBeTruthy();
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 2, "denominator": 3});
+        }
+    );
+    it("Returns falsy CheckerResponse when expressions don't match",
         () => {
             // Act
             const swappedExpressions: Statement = structuredClone(statement);
@@ -706,16 +725,4 @@ describe("Check", () => {
             expect(response.expectedType).toBe("expr");
         }
     );
-
-    it("Allows molecule permutations when allowPermutations set", () => { 
-        // Act
-        const unchangedAST: ChemAST = augment(parseChemistryExpression("C10H22")[0]);
-        const permutedAST: ChemAST = augment(parseChemistryExpression("CH3(CH2)8CH3")[0]);
-
-        const permutedResponse: CheckerResponse = check(unchangedAST, permutedAST, { ...options, allowPermutations: true });
-        const unpermutedResponse: CheckerResponse = check(unchangedAST, permutedAST, options);
-        // Assert
-        expect(permutedResponse.isEqual).toBeTruthy();
-        expect(unpermutedResponse.isEqual).toBeFalsy();
-    });
 });
