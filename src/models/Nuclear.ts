@@ -309,12 +309,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    const response = STARTING_RESPONSE();
+export function check(test: NuclearAST, target: NuclearAST, options: ChemistryOptions): CheckerResponse {
+    const response = STARTING_RESPONSE(options);
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
-    if (isEqual(test.result, target.result)) {
+    if (!options.keepAggregates && isEqual(test.result, target.result)) {
         return response;
     }
 

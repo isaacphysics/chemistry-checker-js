@@ -1,4 +1,3 @@
-import exp from "constants";
 import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT, Result, ASTNode, isExpression } from "../../src/models/Chemistry";
 import { CheckerResponse, listComparison, ChemistryOptions } from "../../src/models/common";
 const { augmentNode } = exportedForTesting;
@@ -139,7 +138,7 @@ function testCheck<T extends ASTNode>(target: T, test: T, options?: ChemistryOpt
 }
 
 function unaugmentedTestCheck<T extends ASTNode>(target: T, test: T, options?: ChemistryOptions): CheckerResponse {
-    return check({result: target as unknown as Result}, {result: test as unknown as Result}, options ?? {});
+    return check(structuredClone({result: target as unknown as Result}), structuredClone({result: test as unknown as Result}), options ?? {});
 }
 
 describe("listComparison", () => {
@@ -277,7 +276,7 @@ describe("testCheck Compounds", () => {
             const compoundCopy: Compound = structuredClone(compound);
 
             // Act
-            const testResponse = testCheck(compoundCopy, structuredClone(compound), { keepAggregates: true });
+            const testResponse = testCheck(compound, compoundCopy, { keepAggregates: true });
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -297,7 +296,7 @@ describe("testCheck Compounds", () => {
             const permutationsOptions = { allowPermutations: true };
 
             // Act
-            const testResponse = testCheck(permutedCompound, structuredClone(compound), permutationsOptions);
+            const testResponse = testCheck(permutedCompound, compound, permutationsOptions);
             const hydrocarbonResponse = testCheck(hydrocarbonCompound, permutedHydrocarbonCompound, permutationsOptions);
 
             // Assert
@@ -314,8 +313,8 @@ describe("testCheck Compounds", () => {
             lengthMismatch.elements?.push(structuredClone(element));
 
             // Act
-            const typesIncorrect = unaugmentedTestCheck(typeMismatch, augmentNode(structuredClone(compound)));
-            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentNode(structuredClone(compound)));
+            const typesIncorrect = unaugmentedTestCheck(typeMismatch, augmentedCompound);
+            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedCompound);
 
             // Assert
             expect(typesIncorrect.isEqual).toBeFalsy();
@@ -341,8 +340,8 @@ describe("testCheck Compounds", () => {
             elementMismatch.elements = [elementCoeffMismatch];
 
             // Act
-            const bracketResponse: CheckerResponse = testCheck(bracketCoeffMismatch, structuredClone(bracket));
-            const elementResponse: CheckerResponse = testCheck(elementCoeffMismatch, structuredClone(element));
+            const bracketResponse: CheckerResponse = testCheck(bracketCoeffMismatch, bracket);
+            const elementResponse: CheckerResponse = testCheck(elementCoeffMismatch, element);
 
             // Assert
             expect(testCheck(bracketMismatch, minimalBracketCompound)).toEqual({...bracketResponse, expectedType: "compound", receivedType: "compound"});
@@ -352,7 +351,7 @@ describe("testCheck Compounds", () => {
     it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            const testResponse = unaugmentedTestCheck(structuredClone(compound), augmentedCompound, { keepAggregates: true });
+            const testResponse = unaugmentedTestCheck(compound, augmentedCompound, { keepAggregates: true });
             
             // Assert
             expect(testResponse.containsError).toBeTruthy();
@@ -370,7 +369,7 @@ describe("testCheck Ions", () => {
             const ionClone: Ion = structuredClone(ion);
 
             // Act
-            const testResponse = testCheck(structuredClone(ion), ionClone, { keepAggregates: true });
+            const testResponse = testCheck(ion, ionClone, { keepAggregates: true });
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -389,7 +388,7 @@ describe("testCheck Ions", () => {
             const permutationsOptions = { allowPermutations: true, keepAggregates: true };
 
             // Act
-            const testResponse = testCheck(permutedIon, structuredClone(ion), permutationsOptions);
+            const testResponse = testCheck(permutedIon, ion, permutationsOptions);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -405,7 +404,7 @@ describe("testCheck Ions", () => {
             }
 
             // Act
-            const moleculeIncorrect = unaugmentedTestCheck(moleculeMismatch, structuredClone(augmentedIon), { keepAggregates: true });
+            const moleculeIncorrect = unaugmentedTestCheck(moleculeMismatch, augmentedIon, { keepAggregates: true });
 
             // Assert
             expect(moleculeIncorrect.isEqual).toBeFalsy();
@@ -422,7 +421,7 @@ describe("testCheck Ions", () => {
             }
 
             // Act
-            const chargeIncorrect = unaugmentedTestCheck(chargeMismatch, structuredClone(augmentedIon), { keepAggregates: true });
+            const chargeIncorrect = unaugmentedTestCheck(chargeMismatch, augmentedIon, { keepAggregates: true });
 
             // Assert
             expect(chargeIncorrect.isEqual).toBeFalsy();
@@ -436,7 +435,7 @@ describe("testCheck Ions", () => {
             lengthMismatch.molecules?.push([structuredClone(element), 1]);
 
             // Act
-            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, structuredClone(augmentedIon), { keepAggregates: true});
+            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedIon, { keepAggregates: true});
 
             // Assert
             expect(lengthIncorrect.isEqual).toBeFalsy();
@@ -445,7 +444,7 @@ describe("testCheck Ions", () => {
     it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            const testResponse = unaugmentedTestCheck(structuredClone(ion), augmentedIon);
+            const testResponse = unaugmentedTestCheck(ion, augmentedIon);
 
             // Assert
             expect(testResponse.containsError).toBeTruthy();
@@ -511,7 +510,7 @@ describe("testCheck Term", () => {
             perturbedTerm.coeff = { numerator: 6, denominator: 4 };
 
             // Act
-            const testResponse = testCheck(perturbedTerm, structuredClone(term), scaledOptions);
+            const testResponse = testCheck(perturbedTerm, term, scaledOptions);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -525,7 +524,7 @@ describe("testCheck Term", () => {
             mismatchTerm.coeff = { numerator: 1, denominator: 5 };
 
             // Act
-            const testResponse = testCheck(mismatchTerm, structuredClone(term));
+            const testResponse = testCheck(mismatchTerm, term);
 
             // Assert
             expect(testResponse.isEqual).toBeFalsy();
@@ -576,7 +575,7 @@ describe("testCheck Term", () => {
             mismatchTerm.value = { type: "electron" };
 
             // Act
-            const testResponse = testCheck(mismatchTerm, structuredClone(term));
+            const testResponse = testCheck(mismatchTerm, term);
 
             // Assert
             expect(testResponse.isEqual).toBeFalsy();
@@ -590,8 +589,8 @@ describe("testCheck Term", () => {
             complexTerm.value = structuredClone(compound);
 
             // Act
-            const testResponse = testCheck(complexTerm, structuredClone(term));
-            const compoundResponse = testCheck(structuredClone(compound), minimalCompound);
+            const testResponse = testCheck(complexTerm, term);
+            const compoundResponse = testCheck(compound, minimalCompound);
 
             // Assert
             expect(testResponse).toEqual({...compoundResponse, expectedType: "term", receivedType: "term"});
@@ -627,7 +626,7 @@ describe("testCheck Expression", () => {
             }
 
             // Act
-            const testResponse = unaugmentedTestCheck(perturbedExpression, structuredClone(augmentedExpression), scaledOptions);
+            const testResponse = unaugmentedTestCheck(perturbedExpression, augmentedExpression, scaledOptions);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -673,7 +672,7 @@ describe("testCheck Expression", () => {
     it("Returns an error if the AST is not augmented",
         () => {
             // Act
-            const testResponse = unaugmentedTestCheck(structuredClone(expression), augmentedExpression);
+            const testResponse = unaugmentedTestCheck(expression, augmentedExpression);
 
             // Assert
             expect(testResponse.containsError).toBeTruthy();
@@ -698,13 +697,12 @@ describe("testCheck Statement", () => {
             // Arrange
             const copy: Statement = structuredClone(statement);
 
-            const copyResult: CheckerResponse = testCheck(copy, statement);
-
-            copy.arrow = "DArr";
             const doubleArrowCopy: Statement = structuredClone(copy);
+            doubleArrowCopy.arrow = "DArr";
 
             // Act
-            const arrowResult = testCheck(copy, doubleArrowCopy);
+            const copyResult: CheckerResponse = testCheck(copy, statement, { keepAggregates: true });
+            const arrowResult: CheckerResponse = testCheck(doubleArrowCopy, doubleArrowCopy, { keepAggregates: true });
 
             // Assert
             expect(copyResult.isEqual).toBeTruthy();
@@ -728,7 +726,7 @@ describe("testCheck Statement", () => {
             }
 
             // Act
-            const testResponse = unaugmentedTestCheck(perturbedStatement, structuredClone(augmentedStatement), scaledOptions);
+            const testResponse = unaugmentedTestCheck(perturbedStatement, augmentedStatement, scaledOptions);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -787,7 +785,7 @@ describe("testCheck Statement", () => {
     it("Returns truthy CheckerResponse when statements charges are balanced", 
         () => {
             // Arrange
-            const balancedCharges: Statement = augmentNode(structuredClone(statement));
+            const balancedCharges: Statement = structuredClone(augmentedStatement);
             balancedCharges.left = structuredClone(chargedExpr);
             balancedCharges.right = structuredClone(chargedExpr);
 
@@ -803,7 +801,7 @@ describe("testCheck Statement", () => {
     it("Returns falsy CheckerResponse when statements charges are unbalanced",
         () => {
             // Arrange
-            const unbalancedCharges: Statement = augmentNode(structuredClone(statement));
+            const unbalancedCharges: Statement = structuredClone(augmentedStatement);
             unbalancedCharges.left = structuredClone(chargedExpr);
 
             // Act

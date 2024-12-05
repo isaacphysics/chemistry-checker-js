@@ -1,5 +1,5 @@
 import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting, Result, ASTNode, augmentNode } from "../../src/models/Nuclear";
-import { CheckerResponse } from "../../src/models/common";
+import { CheckerResponse, ChemistryOptions } from "../../src/models/common";
 
 const original = console.error;
 
@@ -67,22 +67,26 @@ const particleTerm: Term = {
     coeff: 2,
     isParticle: true
 };
+
 const expression: Expression = {
     type: "expr",
     term: structuredClone(term),
-    terms: [structuredClone(term), structuredClone(particleTerm)]
+    rest: structuredClone(particleTerm)
 }
+const augmentedExpression: Expression = augmentNode(structuredClone(expression));
+
 const statement: Statement = {
     type: "statement",
     left: structuredClone(term),
-    right: structuredClone(particleTerm),
+    right: structuredClone(expression),
 }
+const augmentedStatement: Statement = augmentNode(structuredClone(statement));
 
-function testCheck<T extends ASTNode>(target: T, test: T): CheckerResponse {
-    return check({result: augmentNode(target) as unknown as Result}, {result: augmentNode(test) as unknown as Result});
+function testCheck<T extends ASTNode>(target: T, test: T, options?: ChemistryOptions): CheckerResponse {
+    return check({result: augmentNode(structuredClone(target)) as unknown as Result}, {result: augmentNode(structuredClone(test)) as unknown as Result}, options ?? {});
 }
-function unaugmentedTestCheck<T extends ASTNode>(target: T, test: T): CheckerResponse {
-    return check({result: target as unknown as Result}, {result: test as unknown as Result});
+function unaugmentedTestCheck<T extends ASTNode>(target: T, test: T, options?: ChemistryOptions): CheckerResponse {
+    return check(structuredClone({result: target as unknown as Result}), structuredClone({result: test as unknown as Result}), options ?? {});
 }
 
 describe("testCheck Particle", () => {
@@ -240,11 +244,11 @@ describe("testCheck Expression", () => {
     it("Returns truthy CheckerResponse when expressions match",
         () => {
             // Arrange
-            const permutedExpression: Expression = structuredClone(expression);
+            const permutedExpression: Expression = structuredClone(augmentedExpression);
             permutedExpression.terms?.reverse;
 
             // Act
-            const testResponse: CheckerResponse = testCheck(permutedExpression, expression);
+            const testResponse: CheckerResponse = unaugmentedTestCheck(permutedExpression, augmentedExpression);
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
@@ -253,15 +257,15 @@ describe("testCheck Expression", () => {
     it("Returns falsy CheckerResponse when expressions do not match",
         () => {
             // Arrange
-            const lengthMismatch: Expression = structuredClone(expression);
-            lengthMismatch.terms?.push(structuredClone(term));
+            const lengthMismatch: Expression = structuredClone(augmentedExpression);
+            lengthMismatch.terms?.push(structuredClone(term))
 
-            const termMismatch: Expression = structuredClone(expression);
-            if (termMismatch.terms) termMismatch.terms[1] = structuredClone(term);
+            const termMismatch: Expression = structuredClone(augmentedExpression);
+            if (termMismatch.terms) termMismatch.terms[1] = structuredClone(particleTerm);
 
             // Act
-            const lengthIncorrect = testCheck(lengthMismatch, expression);
-            const termIncorrect = testCheck(termMismatch, expression);
+            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedExpression);
+            const termIncorrect = unaugmentedTestCheck(termMismatch, augmentedExpression);
 
             // Assert
             expect(lengthIncorrect.isEqual).toBeFalsy();
@@ -270,16 +274,8 @@ describe("testCheck Expression", () => {
     );
     it("Returns an error if the AST is not augmented",
         () => {
-            // Arrange
-            // This is the same as expression just unaugmented
-            const unaugmentedExpression: Expression = {
-                type: "expr",
-                term: structuredClone(term),
-                rest: structuredClone(particleTerm)
-            }
-
             // Act
-            const testResponse = unaugmentedTestCheck(unaugmentedExpression, expression);
+            const testResponse = unaugmentedTestCheck(expression, expression, { keepAggregates: true });
 
             // Assert
             expect(testResponse.containsError).toBeTruthy();
@@ -318,24 +314,46 @@ describe("testCheck Statement", () => {
             expect(swapResult.isEqual).toBeFalsy();
         }
     );
-    it("Correctly checks whether statements are balanced",
+    it("Returns truthy CheckerResponse when expressions are balanced",
         () => {
             // Arrange
             const balancedStatement: Statement = structuredClone(statement);
             balancedStatement.right = structuredClone(term);
 
             // Act
-            const balancedResponse = testCheck(balancedStatement, balancedStatement);
-            const unbalancedResponse = testCheck(statement, balancedStatement);
+            const balancedResponse = testCheck(balancedStatement, balancedStatement, { keepAggregates: true });
 
             // Assert
             expect(balancedResponse.isBalanced).toBeTruthy();
             expect(balancedResponse.balancedAtom).toBeTruthy();
             expect(balancedResponse.balancedMass).toBeTruthy();
+        }
+    )
+    it("Returns falsy CheckerResponse when expressions are balanced",
+        () => {
+            // Arrange
+            const balancedStatement: Statement = structuredClone(statement);
+            balancedStatement.right = structuredClone(term);
 
+            // Act
+            const unbalancedResponse = testCheck(statement, statement, { keepAggregates: true });
+
+            // Assert
             expect(unbalancedResponse.isBalanced).toBeFalsy();
             expect(unbalancedResponse.balancedAtom).toBeFalsy();
             expect(unbalancedResponse.balancedMass).toBeFalsy();
+        }
+    );
+    it("Returns an error if the AST is not augmented",
+        () => {
+            // Act
+            const testResponse = unaugmentedTestCheck(statement, statement, { keepAggregates: true });
+            
+            // Assert
+            expect(testResponse.containsError).toBeTruthy();
+            expect(testResponse.error).toEqual("Received unaugmented AST during checking process.");
+
+            expect(console.error).toHaveBeenCalled();
         }
     );
 });
@@ -364,7 +382,7 @@ describe("Check", () => {
             }
 
             // Act
-            const response: CheckerResponse = check(errorAST, ast);
+            const response: CheckerResponse = check(errorAST, ast, {});
 
             // Assert
             expect(response.containsError).toBeTruthy();
@@ -380,7 +398,7 @@ describe("Check", () => {
             }
 
             // Act
-            const response: CheckerResponse = check(ast, expressionAST);
+            const response: CheckerResponse = check(ast, expressionAST, {});
 
             // Assert
             expect(response.typeMismatch).toBeTruthy();
@@ -390,7 +408,7 @@ describe("Check", () => {
     it("Returns truthy CheckerResponse when ASTs match",
         () => {
             // Act
-            const response: CheckerResponse = check(ast, ast);
+            const response: CheckerResponse = check(ast, ast, {});
 
             // Assert
             expect(response).toEqual(trueResponse);
