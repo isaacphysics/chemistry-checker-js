@@ -462,7 +462,7 @@ describe("testCheck Term", () => {
             // Arrange
             const stateTerm = structuredClone(term);
             stateTerm.state = "(aq)";
-            let stateTermCopy: Term = structuredClone(stateTerm);
+            const stateTermCopy: Term = structuredClone(stateTerm);
 
             // Act
             const testResponse = testCheck(stateTerm, stateTermCopy)
@@ -685,6 +685,14 @@ describe("testCheck Expression", () => {
 });
 
 describe("testCheck Statement", () => {
+    const chargedIon: Ion = structuredClone(augmentedIon);
+    chargedIon.molecules = [[structuredClone(element), 1]];
+
+    const chargedTerm: Term = augmentNode(structuredClone(term));
+    chargedTerm.value = chargedIon;
+
+    const chargedExpr: Expression = structuredClone(augmentedExpression);
+    chargedExpr.terms?.push(chargedTerm);
     it("Returns truthy CheckerResponse when expressions match",
         () => {
             // Arrange
@@ -779,15 +787,6 @@ describe("testCheck Statement", () => {
     it("Returns truthy CheckerResponse when statements charges are balanced", 
         () => {
             // Arrange
-            const chargedIon: Ion = structuredClone(augmentedIon);
-            chargedIon.molecules = [[structuredClone(element), 1]];
-
-            const chargedTerm: Term = augmentNode(structuredClone(term));
-            chargedTerm.value = chargedIon;
-
-            const chargedExpr: Expression = structuredClone(augmentedExpression);
-            chargedExpr.terms?.push(chargedTerm);
-
             const balancedCharges: Statement = augmentNode(structuredClone(statement));
             balancedCharges.left = structuredClone(chargedExpr);
             balancedCharges.right = structuredClone(chargedExpr);
@@ -804,15 +803,6 @@ describe("testCheck Statement", () => {
     it("Returns falsy CheckerResponse when statements charges are unbalanced",
         () => {
             // Arrange
-            const chargedIon: Ion = structuredClone(augmentedIon);
-            chargedIon.molecules = [[structuredClone(element), 1]];
-
-            const chargedTerm: Term = augmentNode(structuredClone(term));
-            chargedTerm.value = chargedIon;
-
-            const chargedExpr: Expression = structuredClone(augmentedExpression);
-            chargedExpr.terms?.push(chargedTerm);
-
             const unbalancedCharges: Statement = augmentNode(structuredClone(statement));
             unbalancedCharges.left = structuredClone(chargedExpr);
 
