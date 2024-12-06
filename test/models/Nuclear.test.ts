@@ -149,7 +149,7 @@ describe("testCheck Isotope", () => {
             expect(testResponse.validAtomicNumber).toBeTruthy();
         }
     );
-    it("Returns falsy CheckerResponse when isotope do not match",
+    it("Returns falsy CheckerResponse when isotope don't match",
         () => {
             // Arrange
             const elementMismatch: Isotope = structuredClone(isotope);
@@ -254,21 +254,29 @@ describe("testCheck Expression", () => {
             expect(testResponse.isEqual).toBeTruthy();
         }
     );
-    it("Returns falsy CheckerResponse when expressions do not match",
+    it("Returns falsy CheckerResponse when expressions have mismatched length",
         () => {
             // Arrange
             const lengthMismatch: Expression = structuredClone(augmentedExpression);
             lengthMismatch.terms?.push(structuredClone(term))
 
+            // Act
+            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedExpression);
+
+            // Assert
+            expect(lengthIncorrect.isEqual).toBeFalsy();
+        }
+    );
+    it("Returns falsy CheckerResponse when expressions have mismatched terms",
+        () => {
+            // Arrange
             const termMismatch: Expression = structuredClone(augmentedExpression);
             if (termMismatch.terms) termMismatch.terms[1] = structuredClone(particleTerm);
 
             // Act
-            const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedExpression);
             const termIncorrect = unaugmentedTestCheck(termMismatch, augmentedExpression);
 
             // Assert
-            expect(lengthIncorrect.isEqual).toBeFalsy();
             expect(termIncorrect.isEqual).toBeFalsy();
         }
     );
@@ -299,7 +307,7 @@ describe("testCheck Statement", () => {
             expect(copyResult.isEqual).toBeTruthy();
         }
     );
-    it("Returns falsy CheckerResponse when expressions do not match",
+    it("Returns falsy CheckerResponse when expressions don't match",
         () => {
             // Arrange
             const swappedExpressions: Statement = structuredClone(statement);
@@ -329,7 +337,7 @@ describe("testCheck Statement", () => {
             expect(balancedResponse.balancedMass).toBeTruthy();
         }
     )
-    it("Returns falsy CheckerResponse when expressions are balanced",
+    it("Returns falsy CheckerResponse when expressions are unbalanced",
         () => {
             // Arrange
             const balancedStatement: Statement = structuredClone(statement);

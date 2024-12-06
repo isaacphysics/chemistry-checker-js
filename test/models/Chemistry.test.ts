@@ -304,20 +304,29 @@ describe("testCheck Compounds", () => {
             expect(hydrocarbonResponse.isEqual).toBeTruthy();
         }
     );
-    it("Returns falsy CheckerResponse when compounds don't match",
+    it("Returns falsy CheckerResponse when compounds have mismatched type",
         () => {
             // Arrange
             const typeMismatch: Compound = structuredClone(compound);
             typeMismatch.elements = [structuredClone(element), structuredClone(element)];
+
+            // Act
+            const typesIncorrect = unaugmentedTestCheck(typeMismatch, augmentedCompound);
+
+            // Assert
+            expect(typesIncorrect.isEqual).toBeFalsy();
+        }
+    );
+    it("Returns falsy CheckerResponse when compounds have mismatched length",
+        () => {
+            // Arrange
             const lengthMismatch: Compound = augmentNode(structuredClone(compound));
             lengthMismatch.elements?.push(structuredClone(element));
 
             // Act
-            const typesIncorrect = unaugmentedTestCheck(typeMismatch, augmentedCompound);
             const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedCompound);
 
             // Assert
-            expect(typesIncorrect.isEqual).toBeFalsy();
             expect(lengthIncorrect.isEqual).toBeFalsy();
         }
     );
@@ -579,7 +588,7 @@ describe("testCheck Term", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeFalsy();
-            expect(testResponse.typeMismatch).toBeFalsy();
+            expect(testResponse.typeMismatch).toBeTruthy();
         }
     )
     it("Retains CheckerResponse properties",
@@ -633,22 +642,30 @@ describe("testCheck Expression", () => {
             expect(testResponse.atomCount?.O).toEqual({"numerator": 4, "denominator": 1});
         }
     );
-    it("Returns falsy CheckerResponse when expressions don't match",
+    it("Returns falsy CheckerResponse when expressions have mismatched terms",
+        () => {
+            // Arrange
+            const termMismatch: Expression = structuredClone(augmentedExpression);
+            if (termMismatch.terms) termMismatch.terms[1] = structuredClone(hydrate);
+
+            // Act
+            const termIncorrect = unaugmentedTestCheck(termMismatch, augmentedExpression);
+
+            // Assert
+            expect(termIncorrect.isEqual).toBeFalsy();
+        }
+    );
+    it("Returns falsy CheckerResponse when expressions have mismatched length",
         () => {
             // Arrange
             const lengthMismatch: Expression = structuredClone(augmentedExpression);
             lengthMismatch.terms?.push(structuredClone(hydrate));
 
-            const termMismatch: Expression = structuredClone(augmentedExpression);
-            if (termMismatch.terms) termMismatch.terms[1] = structuredClone(hydrate);
-
             // Act
             const lengthIncorrect = unaugmentedTestCheck(lengthMismatch, augmentedExpression);
-            const termIncorrect = unaugmentedTestCheck(termMismatch, augmentedExpression);
 
             // Assert
             expect(lengthIncorrect.isEqual).toBeFalsy();
-            expect(termIncorrect.isEqual).toBeFalsy();
         }
     );
     it("Retains CheckerResponse properties",
