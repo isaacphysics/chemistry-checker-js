@@ -25,7 +25,7 @@ router.post('/check', checkValidationRules, (req: Request, res: Response) => {
 
     const target: NuclearAST = augment(parseNuclearExpression(req.body.target)[0]);
     const test: NuclearAST = augment(parseNuclearExpression(req.body.test)[0]);
-    const result: CheckerResponse = check(test, target);
+    const result: CheckerResponse = check(test, target, {});
 
     res.status(201).send(result);
     

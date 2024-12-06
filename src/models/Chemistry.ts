@@ -584,7 +584,7 @@ export function check(test: ChemAST, target: ChemAST, options: ChemistryOptions)
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
-    if (isEqual(test.result, target.result) && !options.keepAggregates) {
+    if (!options.keepAggregates && isEqual(test.result, target.result)) {
         return response;
     }
 
