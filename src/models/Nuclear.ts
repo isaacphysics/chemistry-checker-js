@@ -190,13 +190,9 @@ const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (opti
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
-        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
-        if (test.mass === null || test.atomic === null) {
-            response.containsError = true;
-            response.error = "Check that all atoms have a mass and atomic number!"
-            response.isEqual = false;
-            return response;
-        }
+        // Answers can be entered without a mass or atomic number. Some particles e.g. electrons can be validly represented this way so a conversion is made
+        if (test.mass === null) test.mass = 0;
+        if (test.atomic === null) test.atomic = 0;
 
         response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
         response.sameElements = response.sameElements && checkParticlesEqual(test, target);
@@ -214,7 +210,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isIsotope(test) && isIsotope(target)) {
-        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
+        // Answers can be entered without a mass or atomic number. However, this is always wrong for isotopes so we throw an error
         if (test.mass === null || test.atomic === null) {
             response.containsError = true;
             response.error = "Check that all atoms have a mass and atomic number!"
