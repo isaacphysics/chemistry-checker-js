@@ -464,7 +464,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
     else if (isElectron(test) && isElectron(target)) {
         // Electrons have no properties to test equivalence of, but charge must still be aggregated
-        response.termChargeCount = (response.termChargeCount ?? 0) + 1;
+        response.termChargeCount = (response.termChargeCount ?? 0) - 1;
 
         return response;
     }
