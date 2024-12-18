@@ -130,40 +130,24 @@ export function augment(ast: NuclearAST): NuclearAST {
     }
 }
 
+const particleMassAtomic: { [key in ParticleString]: [number, number] } = {
+    alphaparticle: [4, 2],
+    betaparticle: [0, -1],
+    gammaray: [0, 0],
+    neutrino: [0, 0],
+    antineutrino: [0, 0],
+    electron: [0, -1],
+    positron: [0, 1],
+    neutron: [1, 0],
+    proton: [1, 1],
+};
+
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
     if (isIsotope(test)) {
         return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
             test.mass > test.atomic;
     }
-    switch(test.particle) {
-        case "alphaparticle":
-            return test.mass === 4 &&
-                test.atomic === 2;
-        case "betaparticle":
-            return test.mass === 0 &&
-                test.atomic === -1;
-        case "gammaray":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "neutrino":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "antineutrino":
-            return test.mass === 0 &&
-                test.atomic === 0;
-        case "electron":
-            return test.mass === 0 &&
-                test.atomic === -1;
-        case "positron":
-            return test.mass === 0 &&
-                test.atomic === 1;
-        case "neutron":
-            return test.mass === 1 &&
-                test.atomic === 0;
-        case "proton":
-            return test.mass === 1 &&
-                test.atomic === 1;
-    }
+    return particleMassAtomic[test.particle][0] === test.mass && particleMassAtomic[test.particle][1] === test.atomic;
 }
 
 function checkParticlesEqual(test: Particle, target: Particle): boolean {
@@ -172,6 +156,13 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
     } else {
         return test.particle === target.particle;
     }
+}
+
+function missingMassAtomicError(response: CheckerResponse): CheckerResponse {
+    response.containsError = true;
+    response.error = "Check that all atoms have a mass and atomic number!";
+    response.isEqual = false;
+    return response;
 }
 
 const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (options) => { return {
@@ -190,12 +181,16 @@ const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (opti
 
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
-        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
-        if (test.mass === null || test.atomic === null) {
-            response.containsError = true;
-            response.error = "Check that all atoms have a mass and atomic number!"
-            response.isEqual = false;
-            return response;
+        // Answers can be entered without a mass or atomic number. Particles with 0 mass e.g. electrons can be validly represented this way so a conversion is made
+        if (test.mass === null && test.atomic === null) {
+            if (particleMassAtomic[test.particle][0] === 0) {
+                test.mass = particleMassAtomic[test.particle][0];
+                test.atomic = particleMassAtomic[test.particle][1];
+            } else {
+                return missingMassAtomicError(response);
+            }
+        } else if (test.mass === null || test.atomic === null) {
+            return missingMassAtomicError(response);
         }
 
         response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
@@ -214,12 +209,9 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         return response;
     } else if (isIsotope(test) && isIsotope(target)) {
-        // Answers can be entered without a mass or atomic number. However, this is always wrong so we throw an error
+        // Answers can be entered without a mass or atomic number. However, this is always wrong for isotopes so we always throw an error
         if (test.mass === null || test.atomic === null) {
-            response.containsError = true;
-            response.error = "Check that all atoms have a mass and atomic number!"
-            response.isEqual = false;
-            return response;
+            return missingMassAtomicError(response);
         }
 
         response.sameElements = response.sameElements && test.element === target.element;
