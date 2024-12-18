@@ -198,7 +198,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             return response;
         }
 
-        response.validAtomicNumber = (response.validAtomicNumber ?? true) && isValidAtomicNumber(test);
+        response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
         response.sameElements = response.sameElements && checkParticlesEqual(test, target);
         response.isEqual = response.isEqual && response.sameElements && response.validAtomicNumber;
 
@@ -283,6 +283,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         // Merge the responses so that the final response contains all the information
         const finalResponse = mergeResponses(leftResponse, rightResponse);
 
+
         // Nuclear question balance is determined by atom/mass count equality
         finalResponse.balancedAtom = leftResponse.nucleonCount && rightResponse.nucleonCount ?
             leftResponse.nucleonCount[0] === rightResponse.nucleonCount[0] : false;
@@ -308,12 +309,12 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
     }
 }
 
-export function check(test: NuclearAST, target: NuclearAST): CheckerResponse {
-    const response = STARTING_RESPONSE();
+export function check(test: NuclearAST, target: NuclearAST, options: ChemistryOptions): CheckerResponse {
+    const response = STARTING_RESPONSE(options);
     response.expectedType = target.result.type;
     response.receivedType = test.result.type;
 
-    if (isEqual(test.result, target.result)) {
+    if (!options.keepAggregates && isEqual(test.result, target.result)) {
         return response;
     }
 
