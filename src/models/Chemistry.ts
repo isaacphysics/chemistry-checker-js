@@ -128,6 +128,7 @@ const STARTING_RESPONSE: (options?: ChemistryOptions, coefficientScalingValue?: 
     sameArrow: true,
     sameBrackets: true,
     isChargeBalanced: true,
+    chargeCount: STARTING_COEFFICIENT,
     options: options ?? {},
     coefficientScalingValue: coefficientScalingValue ?? STARTING_COEFFICIENT,
 } };
