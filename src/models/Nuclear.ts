@@ -163,7 +163,7 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
 
 function missingMassAtomicError(response: CheckerResponse): CheckerResponse {
     response.containsError = true;
-    response.error = "Check that all atoms have a mass and atomic number!";
+    response.error = "Check that all particles have appropriate labels, for example for mass number/proton number/charge!";
     response.isEqual = false;
     return response;
 }
