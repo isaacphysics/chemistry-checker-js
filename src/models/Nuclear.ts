@@ -185,15 +185,17 @@ const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (opti
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
         // Answers can be entered without a mass or atomic number. Particles with 0 mass e.g. electrons can be validly represented this way so a conversion is made
-        if (test.mass === null && test.atomic === null) {
-            if (particleMassAtomic[test.particle][0] === 0) {
-                test.mass = particleMassAtomic[test.particle][0];
-                test.atomic = particleMassAtomic[test.particle][1];
+        if (test.mass === null || test.atomic === null) {
+            if (particleMassAtomic[test.particle][0] === 0 || particleMassAtomic[test.particle][1] === 0) {
+                if (test.mass === null) {
+                    test.mass = particleMassAtomic[test.particle][0];
+                }
+                if (test.atomic === null) {
+                    test.atomic = particleMassAtomic[test.particle][1];
+                }
             } else {
                 return missingMassAtomicError(response);
             }
-        } else if (test.mass === null || test.atomic === null) {
-            return missingMassAtomicError(response);
         }
 
         response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
