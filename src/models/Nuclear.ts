@@ -243,7 +243,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         const newResponse = checkNodesEqual(test.value, target.value, response);
         // Set a flag for sameCoefficient here, but apply the isEqual check at the end (because of listComparison)
-        newResponse.sameCoefficient = test.coeff === target.coeff;
+        newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
 
         // Add the term's nucleon counts to the overall expression nucleon count
         if (!newResponse.nucleonCount) {
