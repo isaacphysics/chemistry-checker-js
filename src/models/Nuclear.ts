@@ -145,7 +145,10 @@ const particleMassAtomic: { [key in ParticleString]: [number, number] } = {
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
     if (isIsotope(test)) {
         return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
-            test.mass > test.atomic;
+            test.mass >= test.atomic;
+    }
+    if (test.particle === "betaparticle" || test.particle === "electron") {
+        return test.mass === 0 && (test.atomic === -1 || test.atomic === 1);
     }
     return particleMassAtomic[test.particle][0] === test.mass && particleMassAtomic[test.particle][1] === test.atomic;
 }
