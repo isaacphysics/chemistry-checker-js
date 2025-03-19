@@ -145,7 +145,10 @@ const particleMassAtomic: { [key in ParticleString]: [number, number] } = {
 function isValidAtomicNumber(test: Particle | Isotope): boolean {
     if (isIsotope(test)) {
         return chemicalSymbol.indexOf(test.element) + 1 === test.atomic &&
-            test.mass > test.atomic;
+            test.mass >= test.atomic;
+    }
+    if (test.particle === "betaparticle" || test.particle === "electron") {
+        return test.mass === 0 && (test.atomic === -1 || test.atomic === 1);
     }
     return particleMassAtomic[test.particle][0] === test.mass && particleMassAtomic[test.particle][1] === test.atomic;
 }
@@ -160,7 +163,7 @@ function checkParticlesEqual(test: Particle, target: Particle): boolean {
 
 function missingMassAtomicError(response: CheckerResponse): CheckerResponse {
     response.containsError = true;
-    response.error = "Check that all atoms have a mass and atomic number!";
+    response.error = "Check that all particles have appropriate labels, for example for mass number/proton number/charge!";
     response.isEqual = false;
     return response;
 }
@@ -182,15 +185,17 @@ const STARTING_RESPONSE: (options?: ChemistryOptions) => CheckerResponse = (opti
 function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerResponse): CheckerResponse {
     if (isParticle(test) && isParticle(target)) {
         // Answers can be entered without a mass or atomic number. Particles with 0 mass e.g. electrons can be validly represented this way so a conversion is made
-        if (test.mass === null && test.atomic === null) {
-            if (particleMassAtomic[test.particle][0] === 0) {
-                test.mass = particleMassAtomic[test.particle][0];
-                test.atomic = particleMassAtomic[test.particle][1];
+        if (test.mass === null || test.atomic === null) {
+            if (particleMassAtomic[test.particle][0] === 0 || particleMassAtomic[test.particle][1] === 0) {
+                if (test.mass === null) {
+                    test.mass = particleMassAtomic[test.particle][0];
+                }
+                if (test.atomic === null) {
+                    test.atomic = particleMassAtomic[test.particle][1];
+                }
             } else {
                 return missingMassAtomicError(response);
             }
-        } else if (test.mass === null || test.atomic === null) {
-            return missingMassAtomicError(response);
         }
 
         response.validAtomicNumber = (response.validAtomicNumber === true) && isValidAtomicNumber(test);
@@ -238,7 +243,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
 
         const newResponse = checkNodesEqual(test.value, target.value, response);
         // Set a flag for sameCoefficient here, but apply the isEqual check at the end (because of listComparison)
-        newResponse.sameCoefficient = test.coeff === target.coeff;
+        newResponse.sameCoefficient = newResponse.sameCoefficient && test.coeff === target.coeff;
 
         // Add the term's nucleon counts to the overall expression nucleon count
         if (!newResponse.nucleonCount) {
