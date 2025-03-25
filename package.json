@@ -1,6 +1,6 @@
 {
   "name": "chemistry-checker-js",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A new Javascript version of the existing Java Chemistry Checker",
   "main": "dist/index.js",
   "author": "Skye Purchase <atp45@cam.ac.uk>",
