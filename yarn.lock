@@ -929,13 +929,6 @@
     "@types/range-parser" "*"
     "@types/send" "*"
 
-"@types/express-validator@^3.0.2":
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/@types/express-validator/-/express-validator-3.0.2.tgz#cda46181a58a8b09e1b225d922f0a1153a5c7f7f"
-  integrity sha512-dV+1u6absDDEIVe5jd5ID1XYvPPvOSvggMWh09VYM3TeBjAjBDtwJWyJg/5PnK7s8FRgbOtHgD6oX3N2MKWwDw==
-  dependencies:
-    express-validator "*"
-
 "@types/express@^5.0.6":
   version "5.0.6"
   resolved "https://registry.yarnpkg.com/@types/express/-/express-5.0.6.tgz#2d724b2c990dcb8c8444063f3580a903f6d500cc"
@@ -1776,14 +1769,6 @@ expect@30.3.0, expect@^30.0.0:
     jest-message-util "30.3.0"
     jest-mock "30.3.0"
     jest-util "30.3.0"
-
-express-validator@*:
-  version "7.0.1"
-  resolved "https://registry.npmjs.org/express-validator/-/express-validator-7.0.1.tgz"
-  integrity sha512-oB+z9QOzQIE8FnlINqyIFA8eIckahC6qc8KtqLdLJcU3/phVyuhXH3bA4qzcrhme+1RYaCSwrq+TlZ/kAKIARA==
-  dependencies:
-    lodash "^4.17.21"
-    validator "^13.9.0"
 
 express-validator@^7.3.1:
   version "7.3.1"
@@ -3516,11 +3501,6 @@ v8-to-istanbul@^9.0.1:
     "@jridgewell/trace-mapping" "^0.3.12"
     "@types/istanbul-lib-coverage" "^2.0.1"
     convert-source-map "^2.0.0"
-
-validator@^13.9.0:
-  version "13.11.0"
-  resolved "https://registry.npmjs.org/validator/-/validator-13.11.0.tgz"
-  integrity sha512-Ii+sehpSfZy+At5nPdnyMhx78fEoPDkR2XW/zimHEL3MyGJQOCQ7WeP20jPYRz7ZCpcKLB21NxuXHF3bxjStBQ==
 
 validator@~13.15.23:
   version "13.15.26"
