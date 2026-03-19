@@ -9,7 +9,7 @@
     "dev": "nodemon",
     "test": "jest --coverage",
     "start": "ts-node src/index.ts",
-    "build": "yarn && tsc",
+    "build": "yarn && tsc --project tsconfig.build.json",
     "serve": "node dist/index.js"
   },
   "devDependencies": {
