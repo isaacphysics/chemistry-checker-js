@@ -1,5 +1,5 @@
-import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting, Result, ASTNode, augmentNode } from "../../src/models/Nuclear";
-import { CheckerResponse, ChemistryOptions } from "../../src/models/common";
+import { Particle, Isotope, Term, Expression, Statement, ParseError, check, NuclearAST, exportedForTesting, Result, ASTNode, augmentNode } from "../../models/Nuclear";
+import { CheckerResponse, ChemistryOptions } from "../../models/common";
 
 const original = console.error;
 

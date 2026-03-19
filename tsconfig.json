@@ -3,12 +3,14 @@
     "target": "es2022",
     "module": "commonjs",
     "outDir": "./dist",
+    "rootDir": "./src",
     "allowJs": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "typeRoots": ["typings", "node_modules/@types"]
+    "typeRoots": ["src/typings", "node_modules/@types"]
   },
   "include": ["src"],
+  "exclude": ["src/test"]
 }
