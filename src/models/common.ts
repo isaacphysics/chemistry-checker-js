@@ -167,7 +167,7 @@ export function listComparison<T>(
             let returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
 
-            // Full lists of aggregates are gathered from the initial response
+            // Full lists of aggregates are gathered from the initial response, rather than incomplete lists from the failed response
             const aggregatesResponse = attachAggregatesFromList(response, testList, comparator);
             returnResponse = attachAggregates(returnResponse, aggregatesResponse);
 
