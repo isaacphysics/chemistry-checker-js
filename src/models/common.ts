@@ -163,10 +163,13 @@ export function listComparison<T>(
         }
 
         if (failed) {
-            // Try to get some new information otherwise use the passed response
+            // Any information other than aggregates (e.g. typeMismatch) should be kept from the failed response if possible
             let returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
-            returnResponse = attachAggregatesFromList(response, testList, comparator);
+
+            // Full lists of aggregates are gathered from the initial response
+            const aggregatesResponse = attachAggregatesFromList(response, testList, comparator);
+            returnResponse = attachAggregates(returnResponse, aggregatesResponse);
 
             return returnResponse;
         }
