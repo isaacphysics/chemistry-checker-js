@@ -104,7 +104,6 @@ function attachAggregatesFromList<T>(response: CheckerResponse, itemList: T[], c
         // This will always pass, this is to get the accurate aggregate bookkeeping values
         aggregatesResponse = comparator(item, item, structuredClone(aggregatesResponse));
     }
-    console.log("ilac", itemList, response.atomCount, aggregatesResponse.atomCount);
 
     return attachAggregates(response, aggregatesResponse);
 }
@@ -120,7 +119,7 @@ export function linearComparison<T>(
     if (testList.length !== targetList.length) {
         possibleResponse.sameElements = false;
         possibleResponse.isEqual = false;
-        possibleResponse = attachAggregatesFromList(possibleResponse, testList, comparator);
+        possibleResponse = attachAggregatesFromList(response, testList, comparator);
 
         return possibleResponse;
     }
@@ -167,7 +166,7 @@ export function listComparison<T>(
             // Try to get some new information otherwise use the passed response
             let returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
-            returnResponse = attachAggregatesFromList(returnResponse, testList, comparator);
+            returnResponse = attachAggregatesFromList(response, testList, comparator);
 
             return returnResponse;
         }
