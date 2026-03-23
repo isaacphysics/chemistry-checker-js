@@ -563,6 +563,13 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         if (finalResponse.sameElements && !finalResponse.isBalanced && !finalResponse.sameCoefficient) {
             finalResponse.isBalanced = true;
         }
+        // If the equation is imbalanced due to an undefined count (e.g. due to a parse error), balance feedback is not useful
+        if (!finalResponse.isBalanced && (leftResponse.atomCount === undefined || rightResponse.atomCount === undefined)) {
+            finalResponse.isBalanced = true;
+        }
+        if (!finalResponse.isChargeBalanced && (leftResponse.chargeCount === undefined || rightResponse.chargeCount === undefined)) {
+            finalResponse.isChargeBalanced = true;
+        }
 
         finalResponse.isEqual = finalResponse.isEqual && finalResponse.sameArrow && finalResponse.isBalanced && finalResponse.isChargeBalanced;
 
