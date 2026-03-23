@@ -1,5 +1,5 @@
-import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT, Result, ASTNode, isExpression } from "../../src/models/Chemistry";
-import { CheckerResponse, listComparison, ChemistryOptions } from "../../src/models/common";
+import { Bracket, Compound, Element, exportedForTesting, Ion, Term, Expression, Statement, ParseError, check, ChemAST, augment, STARTING_COEFFICIENT, Result, ASTNode, isExpression } from "../../models/Chemistry";
+import { CheckerResponse, listComparison, ChemistryOptions } from "../../models/common";
 const { augmentNode } = exportedForTesting;
 import { parseChemistryExpression } from "inequality-grammar";
 

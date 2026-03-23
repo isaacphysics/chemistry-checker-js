@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { ValidationChain, body, validationResult } from "express-validator";
 import { parseNuclearExpression } from "inequality-grammar";
 import { check, augment } from "../models/Nuclear";
-import { CheckerResponse, ChemistryOptions } from "../models/common";
+import { CheckerResponse } from "../models/common";
 
 const router = Router();
 
