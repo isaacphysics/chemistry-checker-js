@@ -165,7 +165,7 @@ export function listComparison<T>(
         if (failed) {
             // Full lists of aggregates are gathered from the initial response, rather than incomplete lists from the failed response
             // Non-aggregate results cannot be used conclusively, as their correctness will depend on the specific list permutation
-            const aggregatesResponse = attachAggregatesFromList(possibleResponse, testList, comparator);
+            const aggregatesResponse = attachAggregatesFromList(response, testList, comparator);
             aggregatesResponse.isEqual = false;
 
             return aggregatesResponse;
