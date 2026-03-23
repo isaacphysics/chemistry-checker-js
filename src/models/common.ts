@@ -84,6 +84,31 @@ export function removeAggregates(response: CheckerResponse): CheckerResponse {
     return response;
 }
 
+function attachAggregates(response: CheckerResponse, aggregatesResponse: CheckerResponse): CheckerResponse {
+    // Attach aggregate values to the response. These are used for feedback, but not for equality checks
+    response.bracketChargeCount = aggregatesResponse.bracketChargeCount;
+    response.termChargeCount = aggregatesResponse.termChargeCount;
+    response.chargeCount = aggregatesResponse.chargeCount;
+    response.bracketAtomCount = aggregatesResponse.bracketAtomCount;
+    response.termAtomCount = aggregatesResponse.termAtomCount;
+    response.atomCount = aggregatesResponse.atomCount;
+    response.termNucleonCount = aggregatesResponse.termNucleonCount;
+    response.nucleonCount = aggregatesResponse.nucleonCount;
+
+    return response;
+}
+
+function attachAggregatesFromList<T>(response: CheckerResponse, itemList: T[], comparator: (test: T, target: T, response: CheckerResponse) => CheckerResponse): CheckerResponse {
+    let aggregatesResponse = structuredClone(response);
+    for (let item of itemList) {
+        // This will always pass, this is to get the accurate aggregate bookkeeping values
+        aggregatesResponse = comparator(item, item, structuredClone(aggregatesResponse));
+    }
+    console.log("ilac", itemList, response.atomCount, aggregatesResponse.atomCount);
+
+    return attachAggregates(response, aggregatesResponse);
+}
+
 export function linearComparison<T>(
     testList: T[],
     targetList: T[],
@@ -95,6 +120,8 @@ export function linearComparison<T>(
     if (testList.length !== targetList.length) {
         possibleResponse.sameElements = false;
         possibleResponse.isEqual = false;
+        possibleResponse = attachAggregatesFromList(possibleResponse, testList, comparator);
+
         return possibleResponse;
     }
 
@@ -113,13 +140,6 @@ export function listComparison<T>(
 ): CheckerResponse {
     const indices: number[] = []; // the indices on which a match was made
     let possibleResponse = structuredClone(response);
-
-    // Get aggregates
-    let aggregatesResponse = structuredClone(response);
-    for (let item of testList) {
-        // This will always pass, this is to get the accurate aggregate bookkeeping values
-        aggregatesResponse = comparator(item, item, aggregatesResponse);
-    }
 
     for (let testItem of testList) {
         let index = 0;
@@ -145,18 +165,9 @@ export function listComparison<T>(
 
         if (failed) {
             // Try to get some new information otherwise use the passed response
-            const returnResponse = currResponse ?? structuredClone(response);
+            let returnResponse = currResponse ?? structuredClone(response);
             returnResponse.isEqual = false;
-
-            // Attach actual aggregate values
-            returnResponse.bracketChargeCount = aggregatesResponse.bracketChargeCount;
-            returnResponse.termChargeCount = aggregatesResponse.termChargeCount;
-            returnResponse.chargeCount = aggregatesResponse.chargeCount;
-            returnResponse.bracketAtomCount = aggregatesResponse.bracketAtomCount;
-            returnResponse.termAtomCount = aggregatesResponse.termAtomCount;
-            returnResponse.atomCount = aggregatesResponse.atomCount;
-            returnResponse.termNucleonCount = aggregatesResponse.termNucleonCount;
-            returnResponse.nucleonCount = aggregatesResponse.nucleonCount;
+            returnResponse = attachAggregatesFromList(returnResponse, testList, comparator);
 
             return returnResponse;
         }
