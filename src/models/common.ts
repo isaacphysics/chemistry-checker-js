@@ -163,15 +163,12 @@ export function listComparison<T>(
         }
 
         if (failed) {
-            // Any information other than aggregates (e.g. typeMismatch) should be kept from the failed response if possible
-            let returnResponse = currResponse ?? structuredClone(response);
-            returnResponse.isEqual = false;
-
             // Full lists of aggregates are gathered from the initial response, rather than incomplete lists from the failed response
-            const aggregatesResponse = attachAggregatesFromList(response, testList, comparator);
-            returnResponse = attachAggregates(returnResponse, aggregatesResponse);
+            // Non-aggregate results cannot be used conclusively, as their correctness will depend on the specific list permutation
+            const aggregatesResponse = attachAggregatesFromList(possibleResponse, testList, comparator);
+            aggregatesResponse.isEqual = false;
 
-            return returnResponse;
+            return aggregatesResponse;
         }
     }
 
