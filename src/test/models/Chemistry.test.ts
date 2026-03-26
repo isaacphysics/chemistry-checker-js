@@ -36,27 +36,9 @@ const response: CheckerResponse = {
     options: options,
     coefficientScalingValue: STARTING_COEFFICIENT,
 }
-// Alternative response object
-const newResponse: CheckerResponse = {
-    containsError: false,
-    error: "",
-    expectedType: "statement",
-    receivedType: "statement",
-    typeMismatch: false,
-    sameState: true,
-    sameCoefficient: true,
-    sameArrow: true,
-    sameBrackets: true,
-    sameElements: true,
-    isBalanced: true,
-    isEqual: true,
-    isNuclear: false,
-    options: options,
-    coefficientScalingValue: STARTING_COEFFICIENT,
-}
 
-const trueResponse: CheckerResponse = structuredClone(newResponse);
-const falseResponse: CheckerResponse = structuredClone(newResponse);
+const trueResponse: CheckerResponse = structuredClone(response);
+const falseResponse: CheckerResponse = structuredClone(response);
 falseResponse.isEqual = false;
 
 // Default objects
@@ -152,7 +134,7 @@ describe("listComparison", () => {
     function comparatorResponseChangeMock(
         test: number, target: number, _response: CheckerResponse
     ): CheckerResponse {
-        const returnResponse = structuredClone(newResponse);
+        const returnResponse = structuredClone(response);
         returnResponse.isEqual = test === target;
         return returnResponse;
     }
