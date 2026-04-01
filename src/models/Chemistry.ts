@@ -344,7 +344,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.sameElements = newResponse.sameElements && test.coeff === target.coeff;
         newResponse.isEqual = newResponse.isEqual && newResponse.sameElements;
 
-        // Add the element to the atomCount of the revelent bracket level
+        // Add the element to the atomCount of the relevant bracket level
         if (newResponse.bracketAtomCount) {
             for (const [key, value] of Object.entries(newResponse.bracketAtomCount[bracketIndex])) {
                 if (bracketIndex > 0) {
@@ -360,7 +360,7 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
             newResponse.bracketAtomCount.pop();
         }
 
-        // Add the charge to the chargeCount of the revelent bracket level
+        // Add the charge to the chargeCount of the relevant bracket level
         if (newResponse.bracketChargeCount) {
             if (bracketIndex > 0) {
                 newResponse.bracketChargeCount[bracketIndex-1] = (newResponse.bracketChargeCount[bracketIndex-1] ?? 0) + (newResponse.bracketChargeCount[bracketIndex] ?? 0) * test.coeff;
