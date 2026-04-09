@@ -106,9 +106,6 @@ const statement: Statement = {
     right: structuredClone(expression),
     arrow: "SArr"
 }
-if ("rest" in statement.right && statement.right.rest && "hydrate" in statement.right.rest) {
-    statement.right.rest.hydrate = 1;
-}
 const augmentedStatement: Statement = augmentNode(structuredClone(statement));
 
 const ast: ChemAST = {
@@ -602,7 +599,7 @@ describe("testCheck Expression", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toEqual({"numerator": 3, "denominator": 1});
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 18, "denominator": 1});
         }
     );
     it("Returns truthy CheckerResponse when expressions match with allowScalingCoefficients", 
@@ -621,7 +618,7 @@ describe("testCheck Expression", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toEqual({"numerator": 4, "denominator": 1});
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 24, "denominator": 1});
         }
     );
     it("Returns falsy CheckerResponse when expressions have mismatched terms",
@@ -729,13 +726,18 @@ describe("testCheck Statement", () => {
 
             // Assert
             expect(testResponse.isEqual).toBeTruthy();
-            expect(testResponse.atomCount?.O).toEqual({"numerator": 2, "denominator": 3});
+            expect(testResponse.atomCount?.O).toEqual({"numerator": 4, "denominator": 1});
         }
     );
     it("Returns falsy CheckerResponse when expressions don't match",
         () => {
             // Arrange
-            const swappedExpressions: Statement = structuredClone(statement);
+            const unbalancedStatement: Statement = structuredClone(statement);
+            if ("rest" in unbalancedStatement.right && unbalancedStatement.right.rest && "hydrate" in unbalancedStatement.right.rest) {
+                unbalancedStatement.right.rest.hydrate = 1;
+            }
+            
+            const swappedExpressions: Statement = structuredClone(unbalancedStatement);
             const tempExpression = swappedExpressions.left;
             swappedExpressions.left = swappedExpressions.right;
             swappedExpressions.right = tempExpression;
@@ -762,7 +764,7 @@ describe("testCheck Statement", () => {
             // Asssert
             expect(balancedCheck.isEqual).toBeTruthy();
             expect(balancedCheck.isBalanced).toBeTruthy();
-            expect(balancedCheck.atomCount?.O).toEqual({"numerator": 3, "denominator": 1});
+            expect(balancedCheck.atomCount?.O).toEqual({"numerator": 18, "denominator": 1});
         }
     );
     it("Returns falsy CheckerResponse when statements are unbalanced", 
@@ -778,7 +780,7 @@ describe("testCheck Statement", () => {
             // Asssert
             expect(unbalancedCheck.isEqual).toBeFalsy();
             expect(unbalancedCheck.isBalanced).toBeFalsy();
-            expect(unbalancedCheck.atomCount?.O).toEqual({"numerator": 3, "denominator": 1});
+            expect(unbalancedCheck.atomCount?.O).toEqual({"numerator": 18, "denominator": 1});
         }
     );
     it("Returns truthy CheckerResponse when statements charges are balanced", 

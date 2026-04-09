@@ -503,6 +503,15 @@ function checkNodesEqual(test: ASTNode, target: ASTNode, response: CheckerRespon
         newResponse.sameState = newResponse.sameState && test.state === target.state;
         newResponse.sameHydrate = newResponse.sameHydrate && test.isHydrate === target.isHydrate && test.hydrate === target.hydrate;
 
+        // If the term contains a hydrate, add the H2 and O from the hydrate to the termAtomCount
+        if (test.isHydrate) {
+            if (!newResponse.termAtomCount) {
+                newResponse.termAtomCount = {} as Record<ChemicalSymbol, number | undefined>;
+            }
+            newResponse.termAtomCount["H"] = (newResponse.termAtomCount["H"] ?? 0) + test.hydrate * 2;
+            newResponse.termAtomCount["O"] = (newResponse.termAtomCount["O"] ?? 0) + test.hydrate;
+        }
+
         // Add the term's atomCount (* coefficient) to the overall expression atomCount
         if (newResponse.termAtomCount) {
             for (const [key, value] of Object.entries(newResponse.termAtomCount)) {
