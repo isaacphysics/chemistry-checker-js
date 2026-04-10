@@ -11,11 +11,15 @@ The chemistry checker is available on `/chemistry` and the nuclear checker is av
 # Docker deployment
 
 1. Ensure that [Docker](https://www.docker.com/) is installed
-2. To build, run:
+2. To remove old tagged versions, run:
 ```
-docker build -t ghcr.io/isaacphysics/chemistry-checker-js:latest --pull .
+docker rmi $(docker images ghcr.io/isaacphyiscs/chemistry-checker-js -a -q)
 ```
-3. To deploy to the GitHub Container Registry, run:
+3. To build, run:
 ```
-docker push ghcr.io/isaacphysics/chemistry-checker-js:latest
+docker build -t ghcr.io/isaacphysics/chemistry-checker-js:latest -t ghcr.io/isaacphysics/chemistry-checker-js:{VERSION_TAG} --pull .
+```
+4. To deploy to the GitHub Container Registry, run:
+```
+docker push -a ghcr.io/isaacphysics/chemistry-checker-js:latest
 ```
