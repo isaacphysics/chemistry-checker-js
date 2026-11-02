@@ -21,5 +21,6 @@ docker build -t ghcr.io/isaacphysics/chemistry-checker-js:latest -t ghcr.io/isaa
 ```
 4. To deploy to the GitHub Container Registry, run:
 ```
-docker push -a ghcr.io/isaacphysics/chemistry-checker-js:latest
+docker push -a ghcr.io/isaacphysics/chemistry-checker-js
 ```
+ > _(This requires a Person Access Token with scope for writing packages, so set one up first if needed)_
