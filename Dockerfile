@@ -1,7 +1,9 @@
-FROM node:20
+FROM node:26
 
 LABEL org.opencontainers.image.source=https://github.com/isaacphysics/chemistry-checker-js
 LABEL org.opencontainers.image.description="NodeJS container for updated chemistry checker."
+
+RUN npm install -g yarn
 
 RUN mkdir /app && chown -R node:node /app
 
